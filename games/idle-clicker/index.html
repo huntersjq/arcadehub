@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Nebula Refinery | Arcade Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --neon-blue: #00f2ff;
+        --neon-purple: #bc13fe;
+        --gold: #ffcc00;
+        --bg-dark: #05050a;
+      }
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
+        color: white;
+        height: 100vh;
+      }
+
+      #app {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        height: 100vh;
+        background: radial-gradient(
+          circle at 30% 50%,
+          rgba(188, 19, 254, 0.1) 0%,
+          transparent 50%
+        );
+      }
+
+      /* Center Area */
+      #main-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      #resource-display {
+        text-align: center;
+        margin-bottom: 50px;
+        z-index: 10;
+      }
+
+      .resource-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8rem;
+        letter-spacing: 4px;
+        color: var(--neon-blue);
+        text-transform: uppercase;
+        opacity: 0.8;
+      }
+
+      .resource-count {
+        font-size: 4rem;
+        font-weight: 800;
+        text-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
+      }
+
+      .per-second {
+        color: #94a3b8;
+        font-size: 1rem;
+        margin-top: 5px;
+      }
+
+      #click-core {
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(
+          circle,
+          var(--neon-purple) 0%,
+          transparent 70%
+        );
+        border-radius: 50%;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 50px rgba(188, 19, 254, 0.2);
+        z-index: 5;
+      }
+
+      #click-core:active {
+        transform: scale(0.92);
+      }
+
+      #click-core::after {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 2px solid var(--neon-purple);
+        animation: pulse-ring 3s infinite;
+      }
+
+      @keyframes pulse-ring {
+        0% {
+          transform: scale(0.8);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.5);
+          opacity: 0;
+        }
+      }
+
+      .core-inner {
+        width: 180px;
+        height: 180px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+      }
+
+      /* Sidebar Upgrades */
+      #sidebar {
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+      }
+
+      .sidebar-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 20px;
+        color: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .upgrade-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .upgrade-card:hover:not(.disabled) {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--neon-blue);
+        transform: translateY(-2px);
+      }
+
+      .upgrade-card.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .upgrade-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .upgrade-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+
+      .upgrade-level {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8rem;
+        color: var(--neon-blue);
+      }
+
+      .upgrade-desc {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin-bottom: 12px;
+      }
+
+      .upgrade-cost {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        color: var(--gold);
+      }
+
+      /* Float Text */
+      .float-text {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 800;
+        color: var(--neon-blue);
+        pointer-events: none;
+        animation: float-up-fade 0.8s forwards;
+        z-index: 50;
+      }
+
+      @keyframes float-up-fade {
+        0% {
+          transform: translate(-50%, 0);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -100px);
+          opacity: 0;
+        }
+      }
+
+      /* Top Nav */
+      #nav {
+        position: absolute;
+        top: 30px;
+        left: 30px;
+        display: flex;
+        gap: 20px;
+        z-index: 100;
+      }
+
+      .exit-btn {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .exit-btn:hover {
+        color: #fff;
+        border-color: #fff;
+      }
+
+      /* Progress Bar for Sidebar */
+      .progress-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: var(--neon-blue);
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="nav">
+        <button
+          class="exit-btn"
+          onclick="window.location.href = '../../index.html'"
+        >
+          < EXIT TO HUB
+        </button>
+      </div>
+
+      <div id="main-display">
+        <div id="resource-display">
+          <div class="resource-label">Stored Stardust</div>
+          <div class="resource-count" id="count">0</div>
+          <div class="per-second" id="pps">Generating 0/sec</div>
+        </div>
+
+        <div id="click-core">
+          <div class="core-inner">⭐</div>
+        </div>
+      </div>
+
+      <div id="sidebar">
+        <div class="sidebar-title">
+          REFINERY UPGRADES
+          <span style="font-size: 0.8rem; opacity: 0.5; font-weight: 400"
+            >v4.0.2</span
+          >
+        </div>
+
+        <div id="upgrades-list">
+          <!-- Upgrades injected via JS -->
+        </div>
+      </div>
+    </div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

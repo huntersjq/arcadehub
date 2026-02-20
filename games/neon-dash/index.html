@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Neon Dash | Arcade Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --neon-pink: #ff007f;
+        --neon-blue: #00f2ff;
+        --neon-purple: #bc13fe;
+        --bg-dark: #05050a;
+      }
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
+        color: white;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #ui {
+        position: absolute;
+        top: 30px;
+        left: 40px;
+        pointer-events: none;
+        z-index: 100;
+      }
+
+      .score-container {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 15px 30px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+      }
+
+      .score-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        letter-spacing: 3px;
+        color: var(--neon-blue);
+        opacity: 0.8;
+      }
+
+      .score-value {
+        font-size: 3rem;
+        font-weight: 800;
+        text-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+      }
+
+      #distance {
+        position: absolute;
+        top: 30px;
+        right: 40px;
+        text-align: right;
+      }
+
+      .dist-box {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 10px 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+      }
+
+      .dist-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        color: var(--neon-pink);
+      }
+
+      .dist-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+
+      #gameOver {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(5, 5, 10, 0.9);
+        backdrop-filter: blur(20px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .game-over-title {
+        font-size: 4rem;
+        font-weight: 800;
+        color: var(--neon-pink);
+        margin-bottom: 0.5rem;
+        text-shadow: 0 0 30px rgba(255, 0, 127, 0.5);
+      }
+
+      .final-stats {
+        font-size: 1.2rem;
+        color: #94a3b8;
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+
+      .menu-btn {
+        background: transparent;
+        border: 1px solid var(--neon-blue);
+        color: var(--neon-blue);
+        padding: 15px 40px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 10px;
+      }
+
+      .menu-btn:hover {
+        background: var(--neon-blue);
+        color: var(--bg-dark);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
+      }
+
+      .exit-btn {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        color: #f43f5e;
+        padding: 5px 15px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-bottom: 10px;
+        pointer-events: auto;
+        backdrop-filter: blur(5px);
+        margin-top: -40px; /* Offset for internal layout */
+      }
+
+      #ui-wrapper {
+        position: absolute;
+        top: 30px;
+        left: 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .controls-hint {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        padding: 12px 24px;
+        border-radius: 100px;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 50;
+        transition: opacity 0.5s;
+      }
+
+      .health-bar-container {
+        width: 200px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      .health-bar-fill {
+        height: 100%;
+        background: var(--neon-blue);
+        width: 100%;
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px var(--neon-blue);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="gameContainer">
+      <div id="ui-wrapper">
+        <button
+          class="exit-btn"
+          onclick="window.location.href = '../../index.html'"
+        >
+          < EXIT TO HUB
+        </button>
+        <div class="score-container">
+          <div class="score-label">SYNC SCORE</div>
+          <div class="score-value" id="score">0000</div>
+          <div class="health-bar-container">
+            <div id="healthFill" class="health-bar-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="distance">
+        <div class="dist-box">
+          <div class="dist-label">VELOCITY REACH</div>
+          <div class="dist-value"><span id="distVal">0</span>m</div>
+        </div>
+      </div>
+
+      <div id="gameOver">
+        <div class="game-over-title">CRITICAL FAILURE</div>
+        <div class="final-stats">
+          DISTANCE: <span id="finalDist">0</span>m<br />
+          SCORE: <span id="finalScore">0</span>
+        </div>
+        <button class="menu-btn" onclick="game.reset()">
+          INITIALIZE RECOVERY
+        </button>
+        <button
+          class="menu-btn"
+          style="border-color: #94a3b8; color: #94a3b8"
+          onclick="window.location.href = '../../index.html'"
+        >
+          RETURN TO HUB
+        </button>
+      </div>
+
+      <div id="controlsHint" class="controls-hint">
+        A / D OR ARROWS TO SWITCH LANES • SPACE TO OVERLOAD
+      </div>
+
+      <canvas id="gameCanvas"></canvas>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

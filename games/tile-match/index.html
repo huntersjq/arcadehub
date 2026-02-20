@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Stellar Match RPG | Arcade Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --accent-gold: #ffcc00;
+        --accent-blue: #00f2ff;
+        --accent-red: #ff3e3e;
+        --bg-dark: #0a0a12;
+        --card-bg: rgba(255, 255, 255, 0.05);
+      }
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
+        color: white;
+        height: 100vh;
+      }
+
+      #game {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 20px;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      /* Battle Area */
+      #battle-area {
+        width: 100%;
+        max-width: 500px;
+        height: 200px;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 242, 255, 0.05) 0%,
+          transparent 100%
+        );
+        border-radius: 20px;
+        position: relative;
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-end;
+        padding-bottom: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+
+      .entity {
+        text-align: center;
+        transition: transform 0.1s;
+      }
+
+      .entity-icon {
+        font-size: 4rem;
+        filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+      }
+
+      .hp-container {
+        width: 120px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+
+      .hp-fill {
+        height: 100%;
+        background: var(--accent-blue);
+        width: 100%;
+        transition: width 0.3s;
+      }
+
+      .enemy .hp-fill {
+        background: var(--accent-red);
+      }
+
+      .damage-text {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 800;
+        color: var(--accent-gold);
+        pointer-events: none;
+        animation: float-up 0.8s forwards;
+        z-index: 100;
+      }
+
+      @keyframes float-up {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-50px);
+          opacity: 0;
+        }
+      }
+
+      /* Grid Area */
+      #grid-container {
+        width: 400px;
+        height: 400px;
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 15px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 15px;
+        position: relative;
+        touch-action: none;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .grid-cell {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+      }
+
+      .tile {
+        position: absolute;
+        width: 81.25px; /* (400 - 30 - 45) / 4 roughly */
+        height: 81.25px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.5rem;
+        transition:
+          transform 0.1s,
+          background 0.2s;
+        z-index: 10;
+      }
+
+      .tile-2 {
+        background: #eee4da;
+        color: #776e65;
+      }
+      .tile-4 {
+        background: #ede0c8;
+        color: #776e65;
+      }
+      .tile-8 {
+        background: #f2b179;
+        color: white;
+      }
+      .tile-16 {
+        background: #f59563;
+        color: white;
+      }
+      .tile-32 {
+        background: #f67c5f;
+        color: white;
+      }
+      .tile-64 {
+        background: #f65e3b;
+        color: white;
+      }
+      .tile-128 {
+        background: #edcf72;
+        color: white;
+        font-size: 1.2rem;
+      }
+      .tile-256 {
+        background: #edcc61;
+        color: white;
+        font-size: 1.2rem;
+      }
+      .tile-512 {
+        background: #edc850;
+        color: white;
+        font-size: 1.2rem;
+      }
+      .tile-1024 {
+        background: #edc53f;
+        color: white;
+        font-size: 1rem;
+      }
+      .tile-2048 {
+        background: #edc22e;
+        color: white;
+        font-size: 1rem;
+      }
+
+      /* UI Overlays */
+      #ui-top {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .exit-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #94a3b8;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .exit-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      .stat-box {
+        background: var(--card-bg);
+        padding: 10px 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+      }
+
+      .stat-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        color: var(--accent-blue);
+        letter-spacing: 2px;
+      }
+
+      .stat-value {
+        font-size: 1.2rem;
+        font-weight: 800;
+      }
+
+      #game-over {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(15px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .menu-btn {
+        background: var(--accent-blue);
+        color: black;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 50px;
+        font-weight: 800;
+        cursor: pointer;
+        margin-top: 20px;
+        transition: transform 0.2s;
+      }
+
+      .menu-btn:hover {
+        transform: scale(1.05);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <div id="ui-top">
+        <button
+          class="exit-btn"
+          onclick="window.location.href = '../../index.html'"
+        >
+          < EXIT TO HUB
+        </button>
+        <div class="stat-box">
+          <div class="stat-label">EXP Gained</div>
+          <div id="score" class="stat-value">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Stage</div>
+          <div id="stage" class="stat-value">1</div>
+        </div>
+      </div>
+
+      <div id="battle-area">
+        <div class="entity player" id="player">
+          <div class="entity-icon">⚔️</div>
+          <div class="hp-container">
+            <div id="playerHp" class="hp-fill"></div>
+          </div>
+        </div>
+        <div class="entity enemy" id="enemy">
+          <div class="entity-icon" id="enemy-icon">👾</div>
+          <div class="hp-container">
+            <div id="enemyHp" class="hp-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="grid-container">
+        <!-- Cells -->
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <div class="grid-cell"></div>
+        <!-- Tiles will be added via JS -->
+      </div>
+
+      <div id="game-over">
+        <h1 style="font-size: 3rem; color: var(--accent-red)">DEFEATED</h1>
+        <p>You fell in battle. Recalibrating...</p>
+        <button class="menu-btn" onclick="location.reload()">TRY AGAIN</button>
+      </div>
+    </div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

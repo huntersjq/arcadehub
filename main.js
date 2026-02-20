@@ -1,10 +1,34 @@
 // Game Registry and Core Logic
 const games = [
   {
+    id: "merger",
+    name: "Cosmic Merge",
+    description: "Physics-based celestial merging.",
+    status: "Live",
+  },
+  {
+    id: "survivor",
+    name: "Neon Survivor",
+    description: "Endless bullet-hell survival.",
+    status: "Live",
+  },
+  {
     id: "dash",
     name: "Neon Dash",
-    description: "A high-speed rhythm-based platformer.",
-    status: "In Development",
+    description: "Procedural high-speed infinite runner.",
+    status: "Live",
+  },
+  {
+    id: "match",
+    name: "Stellar Match",
+    description: "2048-style puzzle meets cosmic RPG.",
+    status: "Live",
+  },
+  {
+    id: "clicker",
+    name: "Nebula Refinery",
+    description: "Satisfying idle stardust harvesting.",
+    status: "Live",
   },
   {
     id: "vox",
