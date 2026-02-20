@@ -2,48 +2,196 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Cosmic Merge | Arcade Hub</title>
-    <script>
-      if (window.location.pathname.endsWith("physics-merger")) {
-        window.location.replace(window.location.pathname + "/");
-      }
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
     <style>
+      :root {
+        --neon-cyan: #00f2ff;
+        --neon-purple: #bc13fe;
+        --bg-dark: #05050a;
+      }
       body,
       html {
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background: #0a0a12;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
       }
       canvas {
         display: block;
       }
       #ui {
         position: absolute;
-        top: 20px;
-        left: 20px;
+        top: 30px;
+        left: 40px;
         color: white;
-        font-family: "Outfit", sans-serif;
         pointer-events: none;
+        z-index: 100;
+      }
+      .score-container {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 15px 30px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
       }
       .score-label {
-        font-size: 14px;
-        opacity: 0.7;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        letter-spacing: 3px;
+        color: var(--neon-cyan);
+        opacity: 0.8;
       }
       .score-value {
-        font-size: 32px;
+        font-size: 3rem;
         font-weight: 800;
+        text-shadow: 0 0 20px rgba(0, 242, 255, 0.3);
+      }
+      #nextPreview {
+        position: absolute;
+        top: 30px;
+        right: 40px;
+        text-align: right;
+      }
+      .preview-box {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 10px;
+      }
+      .preview-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        letter-spacing: 2px;
+        color: var(--neon-purple);
+      }
+      #gameContainer {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      .line {
+        position: absolute;
+        top: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        height: 1px;
+        background: rgba(255, 0, 0, 0.2);
+        box-shadow: 0 0 10px rgba(255, 0, 0, 0.1);
+        z-index: 5;
+      }
+      #gameOver {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(5, 5, 10, 0.8);
+        backdrop-filter: blur(20px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        color: white;
+      }
+      .game-over-title {
+        font-size: 4rem;
+        font-weight: 800;
+        color: var(--neon-cyan);
+        margin-bottom: 0.5rem;
+        text-shadow: 0 0 30px rgba(0, 242, 255, 0.5);
+      }
+      .final-score {
+        font-size: 1.5rem;
+        color: #94a3b8;
+        margin-bottom: 2rem;
+      }
+      .menu-btn {
+        background: transparent;
+        border: 1px solid var(--neon-cyan);
+        color: var(--neon-cyan);
+        padding: 15px 40px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .menu-btn:hover {
+        background: var(--neon-cyan);
+        color: var(--bg-dark);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.4);
+      }
+      .controls-toast {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        padding: 12px 24px;
+        border-radius: 100px;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 50;
       }
     </style>
   </head>
   <body>
-    <div id="ui">
-      <div class="score-label">SCORE</div>
-      <div class="score-value" id="score">0</div>
+    <div id="gameContainer">
+      <div id="ui">
+        <div class="score-container">
+          <div class="score-label">COSMIC REVENUE</div>
+          <div class="score-value" id="score">0</div>
+        </div>
+      </div>
+      <div id="nextPreview">
+        <div class="preview-label">NEXT OBJECT</div>
+        <div class="preview-box" id="previewBox">
+          <canvas id="previewCanvas" width="60" height="60"></canvas>
+        </div>
+      </div>
+      <div class="line"></div>
+      <div id="gameOver">
+        <div class="game-over-title">SYSTEM HALTED</div>
+        <div class="final-score">
+          TOTAL REVENUE: <span id="finalScoreVal">0</span>
+        </div>
+        <button class="menu-btn" onclick="game.reset()">REBOOT SESSION</button>
+        <button
+          class="menu-btn"
+          style="margin-top: 10px; border-color: #94a3b8; color: #94a3b8"
+          onclick="window.location.href = '../../'"
+        >
+          RETURN TO HUB
+        </button>
+      </div>
+      <div class="controls-toast">MOVE MOUSE TO AIM • CLICK TO DROP PLANET</div>
+      <canvas id="gameCanvas"></canvas>
     </div>
-    <canvas id="gameCanvas"></canvas>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
