@@ -145,27 +145,276 @@
       }
       .controls-toast {
         position: fixed;
-        bottom: 40px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         background: rgba(255, 255, 255, 0.05);
         color: #94a3b8;
-        padding: 12px 24px;
-        border-radius: 100px;
-        font-size: 0.8rem;
-        letter-spacing: 1px;
-        backdrop-filter: blur(5px);
+        padding: 20px 40px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-family: "JetBrains Mono", monospace;
+        letter-spacing: 2px;
+        backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         z-index: 50;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+      }
+      .exit-btn {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        color: #f43f5e;
+        padding: 5px 15px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-bottom: 10px;
+        pointer-events: auto;
+        backdrop-filter: blur(5px);
+      }
+      .exit-btn:hover {
+        background: rgba(244, 63, 94, 0.1);
+        border-color: #f43f5e;
+        box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+      }
+      #powerupContainer {
+        position: absolute;
+        bottom: 30px;
+        left: 40px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .powerup-btn {
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--neon-purple);
+        color: var(--neon-purple);
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
+        text-align: left;
+        min-width: 180px;
+      }
+      .powerup-btn:disabled {
+        border-color: #333;
+        color: #333;
+        cursor: not-allowed;
+      }
+      .powerup-btn .charge-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        background: var(--neon-purple);
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+      .powerup-btn:not(:disabled):hover {
+        background: var(--neon-purple);
+        color: white;
+        box-shadow: 0 0 20px rgba(188, 19, 254, 0.5);
+      }
+
+      /* Modals */
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(15px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+      .modal-content {
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 40px;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 500px;
+        color: white;
+      }
+      .modal-title {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 20px;
+        color: var(--neon-cyan);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .close-btn {
+        font-size: 1.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+      }
+      .close-btn:hover {
+        opacity: 1;
+      }
+
+      /* Shop Items */
+      .shop-item {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid transparent;
+        transition: border-color 0.2s;
+      }
+      .shop-item:hover {
+        border-color: rgba(0, 242, 255, 0.3);
+      }
+      .item-info {
+        flex: 1;
+      }
+      .item-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .item-desc {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 4px;
+      }
+      .buy-btn {
+        background: var(--neon-cyan);
+        color: var(--bg-dark);
+        border: none;
+        padding: 8px 15px;
+        border-radius: 6px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .buy-btn:disabled {
+        background: #334155;
+        color: #94a3b8;
+        cursor: not-allowed;
+      }
+
+      /* Leaderboard */
+      .leaderboard-list {
+        margin-top: 20px;
+      }
+      .leaderboard-entry {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .rank {
+        color: var(--neon-cyan);
+        font-weight: bold;
+        width: 30px;
+      }
+      .score {
+        font-family: "JetBrains Mono";
+      }
+
+      /* Difficulty UI */
+      .status-container {
+        margin-top: 15px;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        width: fit-content;
+      }
+      .status-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        color: #94a3b8;
+        margin-bottom: 5px;
+      }
+      .meter-bg {
+        width: 150px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .meter-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--neon-cyan);
+        transition: width 0.3s ease;
+      }
+      #stabilityFill {
+        background: #10b981;
+      }
+      #supernovaFill {
+        background: #f43f5e;
+        box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+      }
+
+      .warning-toast {
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #f43f5e;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 800;
+        letter-spacing: 4px;
+        font-size: 1.5rem;
+        text-shadow: 0 0 20px rgba(244, 63, 94, 0.8);
+        z-index: 500;
+        display: none;
+        pointer-events: none;
       }
     </style>
   </head>
   <body>
     <div id="gameContainer">
       <div id="ui">
+        <button
+          class="exit-btn"
+          onclick="window.location.href = '../../index.html'"
+        >
+          &lt; EXIT TO HUB
+        </button>
         <div class="score-container">
           <div class="score-label">COSMIC REVENUE</div>
           <div class="score-value" id="score">0</div>
+        </div>
+
+        <div class="status-container">
+          <div class="status-label">SYSTEM STABILITY</div>
+          <div class="meter-bg">
+            <div
+              id="stabilityFill"
+              class="meter-fill"
+              style="width: 100%"
+            ></div>
+          </div>
+        </div>
+
+        <div class="status-container">
+          <div class="status-label">SUPERNOVA CRITICALITY</div>
+          <div class="meter-bg">
+            <div id="supernovaFill" class="meter-fill"></div>
+          </div>
         </div>
       </div>
       <div id="nextPreview">
@@ -183,13 +432,90 @@
         <button class="menu-btn" onclick="game.reset()">REBOOT SESSION</button>
         <button
           class="menu-btn"
+          style="
+            margin-top: 10px;
+            border-color: var(--neon-purple);
+            color: var(--neon-purple);
+          "
+          onclick="game.toggleLeaderboard(true)"
+        >
+          VIEW LEADERBOARD
+        </button>
+        <button
+          class="menu-btn"
           style="margin-top: 10px; border-color: #94a3b8; color: #94a3b8"
-          onclick="window.location.href = '../../'"
+          onclick="window.location.href = '/'"
         >
           RETURN TO HUB
         </button>
       </div>
-      <div class="controls-toast">MOVE MOUSE TO AIM • CLICK TO DROP PLANET</div>
+
+      <div id="powerupContainer">
+        <button
+          id="blackHoleBtn"
+          class="powerup-btn"
+          onclick="game.activateBlackHole()"
+          disabled
+        >
+          <div style="font-size: 0.6rem; opacity: 0.7">ABILITY</div>
+          SINGULARITY
+          <div id="blackHoleCharge" class="charge-bar"></div>
+        </button>
+        <button
+          id="shopBtn"
+          class="powerup-btn"
+          style="border-color: var(--neon-cyan); color: var(--neon-cyan)"
+          onclick="game.toggleShop(true)"
+        >
+          <div style="font-size: 0.6rem; opacity: 0.7">RESTORE</div>
+          UPGRADES
+        </button>
+        <button
+          id="leaderboardBtn"
+          class="powerup-btn"
+          style="
+            border-color: #94a3b8;
+            color: #94a3b8;
+            min-width: auto;
+            padding: 12px;
+          "
+          onclick="game.toggleLeaderboard(true)"
+        >
+          🏆
+        </button>
+      </div>
+
+      <!-- Modals -->
+      <div id="shopModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-title">
+            UPGRADES
+            <span class="close-btn" onclick="game.toggleShop(false)">×</span>
+          </div>
+          <div id="shopList">
+            <!-- Shop items injected here -->
+          </div>
+        </div>
+      </div>
+
+      <div id="leaderboardModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-title">
+            LEADERBOARD
+            <span class="close-btn" onclick="game.toggleLeaderboard(false)"
+              >×</span
+            >
+          </div>
+          <div id="leaderboardList" class="leaderboard-list">
+            <!-- Leaderboard entries injected here -->
+          </div>
+        </div>
+      </div>
+
+      <div id="warningToast" class="warning-toast">DEBRIS IMPACT IMMINENT</div>
+      <div id="controlsToast" class="controls-toast">
+        MOVE MOUSE TO AIM • CLICK TO DROP PLANET
+      </div>
       <canvas id="gameCanvas"></canvas>
     </div>
     <script type="module" src="./main.js"></script>
