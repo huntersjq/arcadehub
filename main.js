@@ -34,13 +34,24 @@ const games = [
     id: "vox",
     name: "Vox Runner",
     description: "Infinite runner in a voxel-style world.",
-    status: "Coming Soon",
+    status: "Live",
   },
 ];
 
 function init() {
   console.log("Arcade Hub Initialized");
-  // We can dynamically render cards here if needed
+  const coins = localStorage.getItem("arcade_coins") || 0;
+  const coinEl = document.getElementById("global-coins");
+  if (coinEl) {
+    coinEl.innerText = coins;
+  }
 }
+
+// Function to add coins globally (can be called from games by accessing their parent frame or localstorage directly)
+window.addArcadeCoins = function (amount) {
+  let current = parseInt(localStorage.getItem("arcade_coins") || "0", 10);
+  current += amount;
+  localStorage.setItem("arcade_coins", current);
+};
 
 document.addEventListener("DOMContentLoaded", init);

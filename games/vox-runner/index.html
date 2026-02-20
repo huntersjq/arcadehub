@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Vox Runner | Arcade Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --vox-green: #22c55e;
+        --vox-cyan: #06b6d4;
+        --bg-dark: #0f172a;
+      }
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
+        color: white;
+        height: 100vh;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .exit-btn {
+        pointer-events: auto;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #94a3b8;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .exit-btn:hover {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .score-panel {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 15px 25px;
+        text-align: right;
+        border-bottom: 2px solid var(--vox-cyan);
+      }
+
+      .score-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        color: var(--vox-cyan);
+        letter-spacing: 2px;
+      }
+
+      .score-value {
+        font-size: 2rem;
+        font-weight: 800;
+      }
+
+      #game-over {
+        pointer-events: auto;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(10px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .game-over-title {
+        font-size: 4rem;
+        color: var(--vox-green);
+        margin-bottom: 10px;
+        text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+      }
+
+      .reward-text {
+        color: #fbbf24;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+        background: rgba(251, 191, 36, 0.1);
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(251, 191, 36, 0.3);
+      }
+
+      .btn {
+        background: var(--vox-cyan);
+        color: black;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 50px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.2s;
+        font-size: 1.1rem;
+      }
+
+      .btn:hover {
+        transform: scale(1.05);
+      }
+
+      .controls-hint {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "JetBrains Mono", monospace;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.8rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer">
+      <div class="top-bar">
+        <button
+          class="exit-btn"
+          onclick="window.location.href = '../../index.html'"
+        >
+          < EXIT TO HUB
+        </button>
+        <div class="score-panel">
+          <div class="score-label">DISTANCE</div>
+          <div class="score-value" id="score">0m</div>
+        </div>
+      </div>
+      <div class="controls-hint" id="hint">SPACE or UP to Jump</div>
+    </div>
+
+    <div id="game-over">
+      <div class="game-over-title">CRASHED</div>
+      <p style="font-size: 1.2rem; margin-bottom: 10px">
+        Final Distance: <span id="finalScore">0</span>m
+      </p>
+      <div class="reward-text" id="rewardText">+0 Arcade Coins Earned!</div>
+      <button class="btn" onclick="location.reload()">RETRY RUN</button>
+    </div>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

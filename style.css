@@ -79,6 +79,25 @@ nav {
   letter-spacing: 2px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.arcade-coins {
+  font-weight: 800;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 100px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: monospace;
+}
+
 main {
   max-width: 1200px;
   margin: 0 auto;

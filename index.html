@@ -18,7 +18,10 @@
     <header>
       <nav>
         <div class="logo">ARCADE<span>HUB</span></div>
-        <div class="tagline">Premium HTML5 Gaming</div>
+        <div class="header-right">
+          <div class="arcade-coins">🪙 <span id="global-coins">0</span></div>
+          <div class="tagline">Premium HTML5 Gaming</div>
+        </div>
       </nav>
     </header>
 
@@ -96,11 +99,15 @@
           </div>
         </div>
 
-        <div class="game-card placeholder">
+        <div
+          class="game-card"
+          onclick="window.location.href = 'games/vox-runner/index.html'"
+        >
           <div class="card-inner">
-            <div class="status">Coming Soon</div>
-            <h3>More to Come</h3>
-            <p>Expand your arcade experience with new titles.</p>
+            <div class="status live">Play Now</div>
+            <div class="icon">📦</div>
+            <h3>Vox Runner</h3>
+            <p>Infinite runner in a voxel-style pseudo-3D world.</p>
           </div>
         </div>
       </section>
