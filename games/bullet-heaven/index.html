@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Neon Survivor | Arcade Hub</title>
     <script>
-      if (window.location.pathname.endsWith("bullet-heaven")) {
-        window.location.replace(window.location.pathname + "/");
+      let path = window.location.pathname;
+      if (path.endsWith("index.html")) {
+        window.history.replaceState(null, "", path.replace("index.html", ""));
+      } else if (path.endsWith("bullet-heaven")) {
+        window.location.replace(path + "/");
       }
     </script>
     <style>
