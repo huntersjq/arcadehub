@@ -3,7 +3,9 @@ import { Game, Vector } from "../shared/engine.js";
 class BulletHeaven extends Game {
   constructor() {
     super("gameCanvas");
+    this.loadPersistentData();
     this.reset();
+    this.updateMenuUI();
   }
 
   reset() {
@@ -43,9 +45,131 @@ class BulletHeaven extends Game {
     // Visual FX State
     this.screenShake = 0;
     this.shockwaves = [];
-    this.particles = []; // Re-initialize particles
+    this.particles = [];
+    this.debris = [];
+
+    // Achievement Tracking
+    this.stats = {
+      kills: 0,
+      debris: 0,
+      level: 1,
+      time: 0,
+    };
+    this.unlockedAchievements = new Set();
+    this.achievementThresholds = [
+      {
+        id: "first_blood",
+        label: "MILESTONE: FIRST CONTACT",
+        check: () => this.stats.kills >= 1,
+      },
+      {
+        id: "survivor_1",
+        label: "MILESTONE: STEADY PULSE (1 MIN)",
+        check: () => this.gameTime >= 60,
+      },
+      {
+        id: "salvager",
+        label: "MILESTONE: SCRAP COLLECTOR",
+        check: () => this.stats.debris >= 10,
+      },
+      {
+        id: "boss_killer",
+        label: "MILESTONE: PLANET BREAKER",
+        check: () => this.stats.bossesKilled >= 1,
+      },
+      {
+        id: "level_10",
+        label: "MILESTONE: STELLAR ASCENSION",
+        check: () => this.level >= 10,
+      },
+    ];
+
+    this.stats.bossesKilled = 0;
+    this.statsCommited = { kills: 0, debris: 0, bossesKilled: 0 };
+
+    // Restore permanently unlocked achievements to avoid re-triggering
+    this.persistentData.achievements.forEach((id) =>
+      this.unlockedAchievements.add(id),
+    );
 
     this.updateUI();
+  }
+
+  loadPersistentData() {
+    const data = localStorage.getItem("neon_survivor_records");
+    this.persistentData = data
+      ? JSON.parse(data)
+      : {
+          totalKills: 0,
+          totalDebris: 0,
+          highestLevel: 0,
+          longestSurvival: 0,
+          bossesKilled: 0,
+          achievements: [],
+        };
+  }
+
+  savePersistentData() {
+    const deltaKills = this.stats.kills - this.statsCommited.kills;
+    const deltaDebris = this.stats.debris - this.statsCommited.debris;
+    const deltaBosses =
+      this.stats.bossesKilled - this.statsCommited.bossesKilled;
+
+    this.persistentData.totalKills += deltaKills;
+    this.persistentData.totalDebris += deltaDebris;
+    this.persistentData.bossesKilled += deltaBosses;
+
+    this.statsCommited.kills = this.stats.kills;
+    this.statsCommited.debris = this.stats.debris;
+    this.statsCommited.bossesKilled = this.stats.bossesKilled;
+
+    this.persistentData.highestLevel = Math.max(
+      this.persistentData.highestLevel,
+      this.level,
+    );
+    this.persistentData.longestSurvival = Math.max(
+      this.persistentData.longestSurvival,
+      this.gameTime,
+    );
+
+    const currentUnlocks = Array.from(this.unlockedAchievements);
+    this.persistentData.achievements = Array.from(
+      new Set([...this.persistentData.achievements, ...currentUnlocks]),
+    );
+
+    localStorage.setItem(
+      "neon_survivor_records",
+      JSON.stringify(this.persistentData),
+    );
+    this.updateMenuUI();
+  }
+
+  updateMenuUI() {
+    const container = document.getElementById("globalStats");
+    if (!container) return;
+
+    const time = Math.floor(this.persistentData.longestSurvival);
+    const mins = Math.floor(time / 60)
+      .toString()
+      .padStart(2, "0");
+    const secs = (time % 60).toString().padStart(2, "0");
+
+    container.innerHTML = `
+      <div>TOTAL NEUTRALIZED: <b>${this.persistentData.totalKills}</b></div>
+      <div>HIGHEST SYSTEM LEVEL: <b>${this.persistentData.highestLevel}</b></div>
+      <div>LONGEST SURVIVAL: <b>${mins}:${secs}</b></div>
+      <div class="achievement-grid">
+        ${this.achievementThresholds
+          .map(
+            (ach) => `
+          <div class="ach-icon ${this.persistentData.achievements.includes(ach.id) ? "unlocked" : ""}" title="${ach.label}">
+            ${this.persistentData.achievements.includes(ach.id) ? "★" : "○"}
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    `;
   }
 
   startGame() {
@@ -80,6 +204,7 @@ class BulletHeaven extends Game {
   }
 
   quitToMenu() {
+    this.savePersistentData();
     this.gameState = "menu";
     document.getElementById("pauseMenu").style.display = "none";
     document.getElementById("ui").style.display = "none";
@@ -500,6 +625,7 @@ class BulletHeaven extends Game {
 
       // Player collision (GameOver/Reset)
       if (distToPlayer < en.radius + this.player.radius + 5) {
+        this.savePersistentData();
         this.createExplosion(
           this.player.pos.x,
           this.player.pos.y,
@@ -508,6 +634,36 @@ class BulletHeaven extends Game {
           4,
         );
         setTimeout(() => this.startGame(), 100); // Small delay to see explosion
+      }
+    });
+
+    // Update debris (float and pull)
+    this.debris.forEach((d, i) => {
+      d.pos.add(new Vector(d.vel.x * dt, d.vel.y * dt));
+      d.angle += d.rotSpeed * dt;
+
+      const dist = Vector.dist(this.player.pos, d.pos);
+      if (dist < this.player.gravityRange) {
+        const pull = (1 - dist / this.player.gravityRange) * 150;
+        const dir = new Vector(
+          this.player.pos.x - d.pos.x,
+          this.player.pos.y - d.pos.y,
+        ).normalize();
+        d.pos.add(dir.mult(pull * dt));
+
+        if (dist < this.player.radius + 15) {
+          this.collectDebris(i);
+        }
+      }
+
+      // Border cleanup
+      if (
+        d.pos.x < -100 ||
+        d.pos.x > this.width + 100 ||
+        d.pos.y < -100 ||
+        d.pos.y > this.height + 100
+      ) {
+        this.debris.splice(i, 1);
       }
     });
 
@@ -528,7 +684,47 @@ class BulletHeaven extends Game {
       if (p.life <= 0) this.particles.splice(i, 1);
     });
 
+    this.checkAchievements();
     this.updateUI();
+  }
+
+  collectDebris(index) {
+    const d = this.debris[index];
+    this.debris.splice(index, 1);
+    this.xp += 15;
+    this.stats.debris++;
+    this.createExplosion(d.pos.x, d.pos.y, "#FFFFFF", 5, 0.3);
+
+    // Tiny UI feedback
+    if (this.xp >= this.xpToNext) {
+      this.levelUp();
+    }
+  }
+
+  checkAchievements() {
+    this.achievementThresholds.forEach((ach) => {
+      if (!this.unlockedAchievements.has(ach.id) && ach.check()) {
+        this.unlockedAchievements.add(ach.id);
+        this.showAchievement(ach.label);
+      }
+    });
+  }
+
+  showAchievement(label) {
+    const toast = document.getElementById("achievementNotify");
+    toast.innerText = label;
+    toast.style.display = "block";
+    this.savePersistentData();
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 4000);
+  }
+
+  levelUp() {
+    this.level++;
+    this.xp = 0;
+    this.xpToNext *= 1.4;
+    this.showEvolutionChoices();
   }
 
   killEnemy(en, index) {
@@ -543,17 +739,30 @@ class BulletHeaven extends Game {
       this.bossActive = false;
       this.xp += 500;
       this.screenShake = 15;
+      this.stats.bossesKilled++;
     } else {
       this.xp += 25;
+      // Drop debris
+      if (Math.random() < 0.4) {
+        this.spawnDebris(en.pos.x, en.pos.y);
+      }
     }
     this.enemies.splice(index, 1);
     this.score++;
+    this.stats.kills++;
     if (this.xp >= this.xpToNext) {
-      this.level++;
-      this.xp = 0;
-      this.xpToNext *= 1.4;
-      this.showEvolutionChoices();
+      this.levelUp();
     }
+  }
+
+  spawnDebris(x, y) {
+    this.debris.push({
+      pos: new Vector(x, y),
+      vel: new Vector((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40),
+      angle: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 2,
+      size: 4 + Math.random() * 6,
+    });
   }
 
   updateTrail(ent) {
@@ -723,6 +932,27 @@ class BulletHeaven extends Game {
       ctx.beginPath();
       ctx.arc(p.pos.x, p.pos.y, p.size || 2, 0, Math.PI * 2);
       ctx.fill();
+    });
+
+    // Debris
+    this.debris.forEach((d) => {
+      ctx.save();
+      ctx.translate(d.pos.x, d.pos.y);
+      ctx.rotate(d.angle);
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      // Jagged triangle/shard
+      ctx.moveTo(0, -d.size);
+      ctx.lineTo(d.size, d.size);
+      ctx.lineTo(-d.size, d.size);
+      ctx.closePath();
+      ctx.stroke();
+
+      // Core glow for debris
+      this.drawGlow(ctx, { x: 0, y: 0 }, d.size * 2, "#00F2FF44");
+      ctx.restore();
     });
 
     ctx.restore();
