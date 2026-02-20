@@ -8,7 +8,16 @@ A premium collection of high-quality, lightning-fast HTML5 mini-games.
 - `style.css`: Global styles and design system.
 - `main.js`: Hub logic and game management.
 - `games/`: A directory containing individual mini-game projects.
+- `games/shared/`: Core engine components (Vector, Input, Game base class) shared across all games.
 - `.gemini/`: Storage for AI-assisted development context and conversation history.
+
+## Games Framework
+
+The project uses a unified ES6-based game engine located in `games/shared/engine.js`. This ensures:
+
+- **Consistent Controls**: Unified Input handling for Keyboard/Mouse/Touch.
+- **Optimized Loop**: Standardized `requestAnimationFrame` lifecycle.
+- **Modular Development**: Each game is a standalone ES module that extends the core `Game` class.
 
 ## Development Goals
 
