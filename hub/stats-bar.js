@@ -4,6 +4,7 @@
  */
 
 import { getAggregateStats } from "./data.js";
+import { t } from "./i18n.js";
 
 function countUp(el, target, duration) {
   if (target === 0) {
@@ -37,11 +38,11 @@ export function renderStatsBar() {
   container.textContent = "";
 
   const items = [
-    { label: "Total Plays", value: stats.totalPlays, isNumber: true },
-    { label: "Top Game", value: stats.topGame || "--", isNumber: false },
-    { label: "Coins Earned", value: stats.coins, isNumber: true },
+    { label: t("statTotalPlays"), value: stats.totalPlays, isNumber: true },
+    { label: t("statTopGame"), value: stats.topGame || "--", isNumber: false },
+    { label: t("statCoinsEarned"), value: stats.coins, isNumber: true },
     {
-      label: "Games Mastered",
+      label: t("statGamesMastered"),
       value: `${stats.gamesMastered}/${stats.totalGames}`,
       isNumber: false,
     },

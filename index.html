@@ -23,6 +23,9 @@
           <button class="header-icon-btn" id="profileBtn" aria-label="Player profile">👤</button>
           <button class="header-icon-btn" id="achievementsBtn" aria-label="Achievements">🏅</button>
           <button class="header-icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
+          <div class="lang-picker-wrap" id="langPickerWrap">
+            <button class="header-icon-btn" id="langBtn" aria-label="Language">🌐</button>
+          </div>
           <button class="sound-toggle" id="soundToggle" aria-label="Toggle sound"></button>
           <div class="arcade-coins">🪙 <span id="global-coins">0</span></div>
         </div>
@@ -32,10 +35,11 @@
     <main>
       <section class="hero">
         <h1>
-          Level Up Your
-          <span class="gradient-text">Micro-Gaming</span> Experience
+          <span data-i18n="heroTitle1">Level Up Your</span>
+          <span class="gradient-text" data-i18n="heroTitle2">Micro-Gaming</span>
+          <span data-i18n="heroTitle3">Experience</span>
         </h1>
-        <p>
+        <p data-i18n="heroTagline">
           A curated collection of lightning-fast, high-quality HTML5 mini-games.
         </p>
       </section>
@@ -50,7 +54,7 @@
     </main>
 
     <footer>
-      <p>
+      <p data-i18n="footerText">
         &copy; 2026 Arcade Hub. Built with &hearts; for high-performance gaming.
       </p>
     </footer>

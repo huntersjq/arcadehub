@@ -3,7 +3,7 @@
  * Cache-first strategy for offline play.
  */
 
-const CACHE_NAME = "arcade-hub-v3";
+const CACHE_NAME = "arcade-hub-v4";
 
 const STATIC_ASSETS = [
   "/",
@@ -20,6 +20,7 @@ const STATIC_ASSETS = [
   "/hub/settings.js",
   "/hub/stats-bar.js",
   "/hub/transitions.js",
+  "/hub/i18n.js",
   "/games/shared/engine.js",
   "/games/shared/hub-integration.js",
   "/games/shared/hub-nav.js",

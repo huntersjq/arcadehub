@@ -10,6 +10,7 @@ import {
   getGameStats,
 } from "./data.js";
 import { getAchievementProgress } from "./achievements.js";
+import { t } from "./i18n.js";
 
 let panelEl = null;
 
@@ -26,7 +27,7 @@ function createPanel() {
   header.className = "modal-header";
 
   const title = document.createElement("h2");
-  title.textContent = "Player Profile";
+  title.textContent = t("profileTitle");
   header.appendChild(title);
 
   const closeBtn = document.createElement("button");
@@ -79,12 +80,12 @@ function renderProfileContent() {
   statsGrid.className = "profile-stats";
 
   const statItems = [
-    { label: "Total Plays", value: stats.totalPlays.toLocaleString() },
-    { label: "Play Time", value: formatPlayTime() },
-    { label: "Games Tried", value: `${stats.gamesPlayed} / ${stats.totalGames}` },
-    { label: "Coins Earned", value: stats.coins.toLocaleString() },
-    { label: "Achievements", value: `${achProgress.earned} / ${achProgress.total}` },
-    { label: "Member Since", value: getMemberSince(recent) },
+    { label: t("profileTotalPlays"), value: stats.totalPlays.toLocaleString() },
+    { label: t("profilePlayTime"), value: formatPlayTime() },
+    { label: t("profileGamesTried"), value: `${stats.gamesPlayed} / ${stats.totalGames}` },
+    { label: t("profileCoinsEarned"), value: stats.coins.toLocaleString() },
+    { label: t("profileAchievements"), value: `${achProgress.earned} / ${achProgress.total}` },
+    { label: t("profileMemberSince"), value: getMemberSince(recent) },
   ];
 
   for (const item of statItems) {
@@ -130,7 +131,7 @@ function formatPlayTime() {
 function renderLeaderboard(container) {
   const heading = document.createElement("h3");
   heading.className = "profile-lb-heading";
-  heading.textContent = "Leaderboard";
+  heading.textContent = t("leaderboard");
   container.appendChild(heading);
 
   const entries = gameRegistry
@@ -144,7 +145,7 @@ function renderLeaderboard(container) {
   if (entries.length === 0) {
     const empty = document.createElement("p");
     empty.className = "profile-lb-empty";
-    empty.textContent = "Play some games to see your scores here!";
+    empty.textContent = t("leaderboardEmpty");
     container.appendChild(empty);
     return;
   }
@@ -181,13 +182,13 @@ function renderLeaderboard(container) {
 }
 
 function getRankTitle(plays, achievements) {
-  if (achievements >= 15) return "\u{1F451} Grand Master";
-  if (achievements >= 10) return "\u{1F31F} Expert";
-  if (plays >= 50) return "\u{1F525} Veteran";
-  if (plays >= 20) return "\u{2B50} Skilled";
-  if (plays >= 10) return "\u{1F3AE} Regular";
-  if (plays >= 1) return "\u{1F331} Newcomer";
-  return "\u{1F47B} Unknown";
+  if (achievements >= 15) return "\u{1F451} " + t("rankGrandMaster");
+  if (achievements >= 10) return "\u{1F31F} " + t("rankExpert");
+  if (plays >= 50) return "\u{1F525} " + t("rankVeteran");
+  if (plays >= 20) return "\u{2B50} " + t("rankSkilled");
+  if (plays >= 10) return "\u{1F3AE} " + t("rankRegular");
+  if (plays >= 1) return "\u{1F331} " + t("rankNewcomer");
+  return "\u{1F47B} " + t("rankUnknown");
 }
 
 function getMemberSince(recent) {

@@ -4,6 +4,7 @@
 
 import { CATEGORIES } from "./data.js";
 import { filterCards, searchCards } from "./cards.js";
+import { t, tCat } from "./i18n.js";
 
 let activeCategory = "all";
 let searchTimeout = null;
@@ -18,12 +19,12 @@ export function setupFilters() {
   chipContainer.setAttribute("role", "tablist");
   chipContainer.setAttribute("aria-label", "Filter games by category");
 
-  const allChip = createChip("all", "All");
+  const allChip = createChip("all", t("filterAll"));
   allChip.classList.add("active");
   chipContainer.appendChild(allChip);
 
-  for (const [key, cat] of Object.entries(CATEGORIES)) {
-    chipContainer.appendChild(createChip(key, cat.label));
+  for (const [key] of Object.entries(CATEGORIES)) {
+    chipContainer.appendChild(createChip(key, tCat(key)));
   }
 
   bar.appendChild(chipContainer);
@@ -40,8 +41,8 @@ export function setupFilters() {
   const searchInput = document.createElement("input");
   searchInput.type = "text";
   searchInput.className = "search-input";
-  searchInput.placeholder = "Search games\u2026";
-  searchInput.setAttribute("aria-label", "Search games");
+  searchInput.placeholder = t("searchPlaceholder");
+  searchInput.setAttribute("aria-label", t("searchPlaceholder"));
   searchWrap.appendChild(searchInput);
 
   bar.appendChild(searchWrap);

@@ -4,6 +4,7 @@
  */
 
 import { getSoundEnabled, setSoundEnabled } from "./data.js";
+import { t } from "./i18n.js";
 
 let panelEl = null;
 
@@ -20,13 +21,13 @@ function createPanel() {
   header.className = "modal-header";
 
   const title = document.createElement("h2");
-  title.textContent = "Settings";
+  title.textContent = t("settingsTitle");
   header.appendChild(title);
 
   const closeBtn = document.createElement("button");
   closeBtn.className = "modal-close";
   closeBtn.textContent = "\u00D7";
-  closeBtn.setAttribute("aria-label", "Close settings");
+  closeBtn.setAttribute("aria-label", t("settingsTitle"));
   closeBtn.addEventListener("click", closeSettings);
   header.appendChild(closeBtn);
 
@@ -41,12 +42,12 @@ function createPanel() {
 
   const soundTitle = document.createElement("span");
   soundTitle.className = "setting-title";
-  soundTitle.textContent = "Sound Effects";
+  soundTitle.textContent = t("settingSound");
   soundLabel.appendChild(soundTitle);
 
   const soundDesc = document.createElement("span");
   soundDesc.className = "setting-desc";
-  soundDesc.textContent = "UI click sounds and notifications";
+  soundDesc.textContent = t("settingSoundDesc");
   soundLabel.appendChild(soundDesc);
 
   soundRow.appendChild(soundLabel);
@@ -87,12 +88,12 @@ function createPanel() {
 
   const themeTitle = document.createElement("span");
   themeTitle.className = "setting-title";
-  themeTitle.textContent = "Light Theme";
+  themeTitle.textContent = t("settingTheme");
   themeLabel.appendChild(themeTitle);
 
   const themeDesc = document.createElement("span");
   themeDesc.className = "setting-desc";
-  themeDesc.textContent = "Switch between dark and light appearance";
+  themeDesc.textContent = t("settingThemeDesc");
   themeLabel.appendChild(themeDesc);
 
   themeRow.appendChild(themeLabel);
@@ -130,21 +131,21 @@ function createPanel() {
 
   const resetTitle = document.createElement("span");
   resetTitle.className = "setting-title";
-  resetTitle.textContent = "Reset All Data";
+  resetTitle.textContent = t("settingReset");
   resetLabel.appendChild(resetTitle);
 
   const resetDesc = document.createElement("span");
   resetDesc.className = "setting-desc";
-  resetDesc.textContent = "Clear all scores, achievements, and preferences";
+  resetDesc.textContent = t("settingResetDesc");
   resetLabel.appendChild(resetDesc);
 
   resetRow.appendChild(resetLabel);
 
   const resetBtn = document.createElement("button");
   resetBtn.className = "setting-btn danger";
-  resetBtn.textContent = "Reset";
+  resetBtn.textContent = t("settingResetBtn");
   resetBtn.addEventListener("click", () => {
-    if (confirm("This will delete all your game data, scores, and achievements. Are you sure?")) {
+    if (confirm(t("settingResetConfirm"))) {
       localStorage.clear();
       window.location.reload();
     }
@@ -161,11 +162,11 @@ function createPanel() {
   about.className = "setting-about";
 
   const aboutTitle = document.createElement("h3");
-  aboutTitle.textContent = "About Arcade Hub";
+  aboutTitle.textContent = t("settingAbout");
   about.appendChild(aboutTitle);
 
   const aboutText = document.createElement("p");
-  aboutText.textContent = "A curated collection of lightning-fast, high-quality HTML5 mini-games. No frameworks, no build tools \u2014 just pure vanilla JavaScript and Canvas.";
+  aboutText.textContent = t("settingAboutText");
   about.appendChild(aboutText);
 
   const version = document.createElement("span");

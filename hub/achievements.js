@@ -4,6 +4,7 @@
  */
 
 import { gameRegistry, getGameStats, getAggregateStats, getGlobalCoins } from "./data.js";
+import { t } from "./i18n.js";
 
 const ACH_KEY = "arcade_hub_achievements";
 
@@ -156,7 +157,7 @@ function showNextToast() {
 
   const label = document.createElement("span");
   label.className = "ach-toast-label";
-  label.textContent = "Achievement Unlocked!";
+  label.textContent = t("achUnlocked");
   info.appendChild(label);
 
   const name = document.createElement("span");
@@ -204,7 +205,7 @@ export function renderAchievementPanel(container) {
   header.className = "ach-panel-header";
 
   const title = document.createElement("h2");
-  title.textContent = "Achievements";
+  title.textContent = t("achTitle");
   header.appendChild(title);
 
   const progress = getAchievementProgress();

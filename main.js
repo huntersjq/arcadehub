@@ -12,10 +12,12 @@ import { setupAudio } from "./hub/audio.js";
 import { checkAchievements, notifyAchievements, renderAchievementPanel } from "./hub/achievements.js";
 import { setupSettings, applyTheme } from "./hub/settings.js";
 import { setupProfile } from "./hub/profile.js";
+import { t, getLang, setLang, getLanguages, refreshPageText } from "./hub/i18n.js";
 
 function init() {
-  // Apply saved theme before rendering
+  // Apply saved theme and language before rendering
   applyTheme();
+  refreshPageText();
 
   // Display global coins
   const coinEl = document.getElementById("global-coins");
@@ -36,6 +38,7 @@ function init() {
   setupSettings();
   setupProfile();
   setupAchievementsPanel();
+  setupLangPicker();
 
   // Check for newly earned achievements
   const newAch = checkAchievements();
@@ -87,13 +90,12 @@ function showWelcomeBanner() {
   const textWrap = document.createElement("div");
   const title = document.createElement("h2");
   title.className = "welcome-title";
-  title.textContent = "Welcome to Arcade Hub!";
+  title.textContent = t("welcomeTitle");
   textWrap.appendChild(title);
 
   const text = document.createElement("p");
   text.className = "welcome-text";
-  text.textContent =
-    "Pick any game below to start playing. Earn coins, unlock achievements, and climb the ranks!";
+  text.textContent = t("welcomeText");
   textWrap.appendChild(text);
   content.appendChild(textWrap);
   banner.appendChild(content);
@@ -113,6 +115,48 @@ function showWelcomeBanner() {
   if (hero) {
     hero.after(banner);
   }
+}
+
+function setupLangPicker() {
+  const wrap = document.getElementById("langPickerWrap");
+  const btn = document.getElementById("langBtn");
+  if (!wrap || !btn) return;
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "lang-dropdown";
+
+  const languages = getLanguages();
+  const currentLang = getLang();
+
+  for (const [code, info] of Object.entries(languages)) {
+    const item = document.createElement("button");
+    item.className = "lang-option" + (code === currentLang ? " active" : "");
+    item.dataset.lang = code;
+    item.textContent = `${info.flag} ${info.label}`;
+    dropdown.appendChild(item);
+  }
+
+  wrap.appendChild(dropdown);
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle("open");
+  });
+
+  dropdown.addEventListener("click", (e) => {
+    const option = e.target.closest(".lang-option");
+    if (!option) return;
+    const lang = option.dataset.lang;
+    if (lang !== currentLang) {
+      setLang(lang);
+      window.location.reload();
+    }
+    dropdown.classList.remove("open");
+  });
+
+  document.addEventListener("click", () => {
+    dropdown.classList.remove("open");
+  });
 }
 
 document.addEventListener("DOMContentLoaded", init);

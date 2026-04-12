@@ -16,6 +16,7 @@ import {
   getGameStats,
 } from "./data.js";
 import { startIconAnimation } from "./icons.js";
+import { t, tCat } from "./i18n.js";
 
 const iconCleanups = [];
 
@@ -26,15 +27,15 @@ function formatScore(score) {
 }
 
 function timeAgo(ts) {
-  if (!ts) return "Never";
+  if (!ts) return t("never");
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t("justNow");
+  if (mins < 60) return t("minsAgo", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("hoursAgo", { n: hours });
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t("daysAgo", { n: days });
 }
 
 function buildCardDOM(game, stats, favorited) {
@@ -50,7 +51,7 @@ function buildCardDOM(game, stats, favorited) {
   const pill = document.createElement("span");
   pill.className = "category-pill";
   pill.style.setProperty("--pill-color", cat.color);
-  pill.textContent = cat.label;
+  pill.textContent = tCat(game.category);
   topRow.appendChild(pill);
 
   const favBtn = document.createElement("button");
@@ -84,9 +85,9 @@ function buildCardDOM(game, stats, favorited) {
   ribbon.className = "stats-ribbon";
 
   const statItems = [
-    { icon: "\u{1F3C6}", value: formatScore(stats.bestScore), title: "Best score" },
-    { icon: "\u{1F3AE}", value: String(stats.timesPlayed), title: "Times played" },
-    { icon: "\u{1F550}", value: timeAgo(stats.lastPlayed), title: "Last played" },
+    { icon: "\u{1F3C6}", value: formatScore(stats.bestScore), title: t("bestScore") },
+    { icon: "\u{1F3AE}", value: String(stats.timesPlayed), title: t("timesPlayed") },
+    { icon: "\u{1F550}", value: timeAgo(stats.lastPlayed), title: t("lastPlayed") },
   ];
   for (const s of statItems) {
     const span = document.createElement("span");
@@ -114,7 +115,7 @@ function createCard(game) {
   card.style.setProperty("--accent", game.accentColor);
   card.setAttribute("role", "link");
   card.setAttribute("tabindex", "0");
-  card.setAttribute("aria-label", `Play ${game.name} — ${game.tagline}`);
+  card.setAttribute("aria-label", t("playGame", { name: game.name }) + " — " + game.tagline);
 
   card.appendChild(buildCardDOM(game, stats, favorited));
   return card;
@@ -131,9 +132,10 @@ function renderSection(container, games, title) {
   heading.textContent = title;
   section.appendChild(heading);
 
+  const isAllGames = title === t("sectionAllGames");
   const grid = document.createElement("div");
-  grid.className = title === "All Games" ? "game-grid" : "game-scroll";
-  if (title === "All Games") grid.id = "allGamesGrid";
+  grid.className = isAllGames ? "game-grid" : "game-scroll";
+  if (isAllGames) grid.id = "allGamesGrid";
 
   for (const game of games) {
     grid.appendChild(createCard(game));
@@ -160,7 +162,7 @@ export function renderCards() {
     .filter(Boolean);
 
   if (recentGames.length > 0) {
-    renderSection(container, recentGames, "Recently Played");
+    renderSection(container, recentGames, t("sectionRecent"));
   }
 
   // Favorites
@@ -170,28 +172,26 @@ export function renderCards() {
     .filter(Boolean);
 
   if (favGames.length > 0) {
-    renderSection(container, favGames, "Favorites");
+    renderSection(container, favGames, t("sectionFavorites"));
   } else if (recent.length > 0) {
-    // Show empty state hint for favorites only if user has played before
     const hint = document.createElement("div");
     hint.className = "card-section empty-hint";
 
     const hintHeading = document.createElement("h2");
     hintHeading.className = "section-heading";
-    hintHeading.textContent = "Favorites";
+    hintHeading.textContent = t("sectionFavorites");
     hint.appendChild(hintHeading);
 
     const hintText = document.createElement("p");
     hintText.className = "empty-hint-text";
-    hintText.textContent =
-      "\u2B50 Click the star on any game card to add it to your favorites.";
+    hintText.textContent = t("favEmptyHint");
     hint.appendChild(hintText);
 
     container.appendChild(hint);
   }
 
   // All Games
-  renderSection(container, gameRegistry, "All Games");
+  renderSection(container, gameRegistry, t("sectionAllGames"));
 
   // Start icon animations with IntersectionObserver
   setupIconAnimations();
@@ -323,7 +323,7 @@ export function searchCards(query) {
     if (!emptyEl) {
       emptyEl = document.createElement("p");
       emptyEl.className = "empty-state";
-      emptyEl.textContent = "No games match your search.";
+      emptyEl.textContent = t("noSearchResults");
       grid.parentElement.appendChild(emptyEl);
     }
     emptyEl.style.display = "";
