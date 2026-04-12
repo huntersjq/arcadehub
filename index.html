@@ -8,19 +8,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
   </head>
   <body>
+    <div class="transition-overlay" id="transitionOverlay"></div>
     <div class="blob-bg"></div>
 
     <header>
       <nav>
         <div class="logo">ARCADE<span>HUB</span></div>
         <div class="header-right">
+          <button class="sound-toggle" id="soundToggle" aria-label="Toggle sound"></button>
           <div class="arcade-coins">🪙 <span id="global-coins">0</span></div>
-          <div class="tagline">Premium HTML5 Gaming</div>
         </div>
       </nav>
     </header>
@@ -36,81 +37,11 @@
         </p>
       </section>
 
-      <section class="game-grid" id="gameGrid">
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/physics-merger/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">🌌</div>
-            <h3>Cosmic Merge</h3>
-            <p>Physics-based celestial merging. Reach the sun!</p>
-          </div>
-        </div>
+      <section class="stats-strip" id="statsStrip"></section>
 
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/bullet-heaven/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">⚔️</div>
-            <h3>Neon Survivor</h3>
-            <p>Endless bullet-hell survival against the swarm.</p>
-          </div>
-        </div>
+      <section class="filter-bar" id="filterBar"></section>
 
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/neon-dash/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">🏎️</div>
-            <h3>Neon Dash</h3>
-            <p>Procedural high-speed infinite runner. Stay in the flow!</p>
-          </div>
-        </div>
-
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/tile-match/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">🧩</div>
-            <h3>Stellar Match</h3>
-            <p>2048-style puzzle meets cosmic RPG. Merge to attack!</p>
-          </div>
-        </div>
-
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/idle-clicker/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">✨</div>
-            <h3>Nebula Refinery</h3>
-            <p>
-              Harvest stardust and build a cosmic empire. Satisfyingly idle.
-            </p>
-          </div>
-        </div>
-
-        <div
-          class="game-card"
-          onclick="window.location.href = 'games/vox-runner/'"
-        >
-          <div class="card-inner">
-            <div class="status live">Play Now</div>
-            <div class="icon">📦</div>
-            <h3>Vox Runner</h3>
-            <p>Infinite runner in a voxel-style pseudo-3D world.</p>
-          </div>
-        </div>
-      </section>
+      <section id="gameGrid"></section>
     </main>
 
     <footer>
@@ -119,6 +50,6 @@
       </p>
     </footer>
 
-    <script src="main.js"></script>
+    <script type="module" src="main.js"></script>
   </body>
 </html>
