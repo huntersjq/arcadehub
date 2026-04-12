@@ -3,7 +3,7 @@
  * Cache-first strategy for offline play.
  */
 
-const CACHE_NAME = "arcade-hub-v2";
+const CACHE_NAME = "arcade-hub-v3";
 
 const STATIC_ASSETS = [
   "/",
@@ -40,6 +40,8 @@ const STATIC_ASSETS = [
   "/games/word-scramble/main.js",
   "/games/rhythm-tap/index.html",
   "/games/rhythm-tap/main.js",
+  "/games/tower-defense/index.html",
+  "/games/tower-defense/main.js",
 ];
 
 // Install: cache all static assets

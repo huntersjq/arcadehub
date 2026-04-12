@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Stellar Siege | Arcade Hub</title>
+    <script>
+      let path = window.location.pathname;
+      if (path.endsWith("index.html")) {
+        window.history.replaceState(null, "", path.replace("index.html", ""));
+      } else if (path.endsWith("tower-defense")) {
+        window.location.replace(path + "/");
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --td-primary: #22d3ee;
+        --td-secondary: #f97316;
+        --td-danger: #ef4444;
+        --bg-dark: #05050a;
+      }
+
+      body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--bg-dark);
+        font-family: "Outfit", sans-serif;
+        color: white;
+      }
+
+      canvas { display: block; }
+
+      #hud {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+        z-index: 100;
+      }
+
+      .hud-box {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 10px 18px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+      }
+
+      .hud-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        opacity: 0.7;
+        margin-bottom: 2px;
+      }
+
+      .hud-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+      }
+
+      .hud-left { display: flex; gap: 10px; flex-wrap: wrap; }
+      .hud-right { display: flex; gap: 10px; }
+
+      #towerPalette {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .tower-btn {
+        width: 64px;
+        height: 72px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        color: white;
+        font-family: "Outfit", sans-serif;
+        font-size: 0.65rem;
+        font-weight: 600;
+        transition: border-color 0.15s, transform 0.15s, background 0.15s;
+        backdrop-filter: blur(8px);
+      }
+
+      .tower-btn:hover {
+        border-color: var(--td-primary);
+        transform: translateY(-3px);
+        background: rgba(34, 211, 238, 0.08);
+      }
+
+      .tower-btn.selected {
+        border-color: var(--td-primary);
+        background: rgba(34, 211, 238, 0.12);
+        box-shadow: 0 0 16px rgba(34, 211, 238, 0.2);
+      }
+
+      .tower-btn.disabled {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+
+      .tower-icon { font-size: 1.4rem; }
+      .tower-cost {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        color: #fbbf24;
+      }
+
+      .exit-btn {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        color: #f43f5e;
+        padding: 5px 15px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+        cursor: pointer;
+        z-index: 200;
+        backdrop-filter: blur(5px);
+        transition: all 0.3s;
+      }
+
+      #startScreen, #gameOver {
+        position: absolute;
+        inset: 0;
+        background: rgba(5, 5, 10, 0.92);
+        backdrop-filter: blur(20px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      #gameOver { display: none; }
+
+      .screen-title {
+        font-size: clamp(2.5rem, 8vw, 4rem);
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+      }
+
+      .screen-sub {
+        font-size: 1rem;
+        color: #94a3b8;
+        margin-bottom: 2rem;
+        text-align: center;
+        max-width: 420px;
+        line-height: 1.5;
+      }
+
+      .menu-btn {
+        background: transparent;
+        border: 1px solid var(--td-primary);
+        color: var(--td-primary);
+        padding: 14px 40px;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: bold;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 8px;
+        transition: all 0.3s;
+      }
+
+      .menu-btn:hover {
+        background: var(--td-primary);
+        color: var(--bg-dark);
+        box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+      }
+
+      .go-title {
+        color: var(--td-danger);
+        text-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+      }
+
+      .go-stats {
+        font-size: 1.1rem;
+        color: #94a3b8;
+        margin-bottom: 2rem;
+        text-align: center;
+        line-height: 2;
+      }
+    </style>
+    <link rel="stylesheet" href="../shared/hub-nav.css" />
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud" style="display:none">
+      <div class="hud-left">
+        <div class="hud-box">
+          <div class="hud-label" style="color:var(--td-primary)">WAVE</div>
+          <div class="hud-value" id="waveNum">1</div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-label" style="color:#fbbf24">CREDITS</div>
+          <div class="hud-value" id="credits">100</div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-label" style="color:var(--td-danger)">LIVES</div>
+          <div class="hud-value" id="lives">20</div>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-box">
+          <div class="hud-label" style="color:var(--td-secondary)">SCORE</div>
+          <div class="hud-value" id="score">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="towerPalette" style="display:none">
+      <button class="tower-btn" data-tower="blaster">
+        <span class="tower-icon">🔫</span>
+        <span>Blaster</span>
+        <span class="tower-cost">💰 25</span>
+      </button>
+      <button class="tower-btn" data-tower="frost">
+        <span class="tower-icon">❄️</span>
+        <span>Frost</span>
+        <span class="tower-cost">💰 40</span>
+      </button>
+      <button class="tower-btn" data-tower="cannon">
+        <span class="tower-icon">💥</span>
+        <span>Cannon</span>
+        <span class="tower-cost">💰 60</span>
+      </button>
+      <button class="tower-btn" data-tower="laser">
+        <span class="tower-icon">⚡</span>
+        <span>Laser</span>
+        <span class="tower-cost">💰 80</span>
+      </button>
+    </div>
+
+    <div id="startScreen">
+      <div class="screen-title">STELLAR SIEGE</div>
+      <div class="screen-sub">
+        Defend your base from waves of cosmic invaders.
+        Place towers strategically to survive!
+      </div>
+      <button class="menu-btn" onclick="game.start()">DEPLOY DEFENSES</button>
+    </div>
+
+    <div id="gameOver">
+      <div class="screen-title go-title">BASE BREACHED</div>
+      <div class="go-stats" id="goStats"></div>
+      <button class="menu-btn" onclick="game.start()">TRY AGAIN</button>
+      <button
+        class="menu-btn"
+        style="border-color:#94a3b8; color:#94a3b8"
+        onclick="window.location.href='../../'"
+      >RETURN TO HUB</button>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+    <script src="../shared/hub-integration.js"></script>
+    <script src="../shared/hub-nav.js"></script>
+  </body>
+</html>

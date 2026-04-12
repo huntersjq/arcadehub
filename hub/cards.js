@@ -14,7 +14,6 @@ import {
   isFavorite,
   toggleFavorite,
   getGameStats,
-  recordPlay,
 } from "./data.js";
 import { startIconAnimation } from "./icons.js";
 
@@ -172,6 +171,23 @@ export function renderCards() {
 
   if (favGames.length > 0) {
     renderSection(container, favGames, "Favorites");
+  } else if (recent.length > 0) {
+    // Show empty state hint for favorites only if user has played before
+    const hint = document.createElement("div");
+    hint.className = "card-section empty-hint";
+
+    const hintHeading = document.createElement("h2");
+    hintHeading.className = "section-heading";
+    hintHeading.textContent = "Favorites";
+    hint.appendChild(hintHeading);
+
+    const hintText = document.createElement("p");
+    hintText.className = "empty-hint-text";
+    hintText.textContent =
+      "\u2B50 Click the star on any game card to add it to your favorites.";
+    hint.appendChild(hintText);
+
+    container.appendChild(hint);
   }
 
   // All Games
@@ -223,9 +239,7 @@ export function setupCardEvents(onNavigate) {
     // Handle card click → navigate to game
     const card = e.target.closest(".game-card");
     if (card) {
-      const gameId = card.dataset.gameId;
       const path = card.dataset.path;
-      recordPlay(gameId);
       if (onNavigate) {
         onNavigate(card, path);
       } else {

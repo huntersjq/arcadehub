@@ -78,6 +78,49 @@ function createPanel() {
   // Divider
   panel.appendChild(createDivider());
 
+  // Theme setting
+  const themeRow = document.createElement("div");
+  themeRow.className = "setting-row";
+
+  const themeLabel = document.createElement("div");
+  themeLabel.className = "setting-label";
+
+  const themeTitle = document.createElement("span");
+  themeTitle.className = "setting-title";
+  themeTitle.textContent = "Light Theme";
+  themeLabel.appendChild(themeTitle);
+
+  const themeDesc = document.createElement("span");
+  themeDesc.className = "setting-desc";
+  themeDesc.textContent = "Switch between dark and light appearance";
+  themeLabel.appendChild(themeDesc);
+
+  themeRow.appendChild(themeLabel);
+
+  const isLight = getTheme() === "light";
+  const themeToggle = document.createElement("button");
+  themeToggle.className = "setting-toggle" + (isLight ? " active" : "");
+  themeToggle.id = "themeToggle";
+  themeToggle.setAttribute("role", "switch");
+  themeToggle.setAttribute("aria-checked", String(isLight));
+
+  const themeKnob = document.createElement("span");
+  themeKnob.className = "toggle-knob";
+  themeToggle.appendChild(themeKnob);
+
+  themeToggle.addEventListener("click", () => {
+    const nowLight = getTheme() !== "light";
+    setTheme(nowLight ? "light" : "dark");
+    themeToggle.classList.toggle("active", nowLight);
+    themeToggle.setAttribute("aria-checked", String(nowLight));
+  });
+
+  themeRow.appendChild(themeToggle);
+  panel.appendChild(themeRow);
+
+  // Divider
+  panel.appendChild(createDivider());
+
   // Reset data
   const resetRow = document.createElement("div");
   resetRow.className = "setting-row";
@@ -142,6 +185,17 @@ function createPanel() {
   return overlay;
 }
 
+const THEME_KEY = "arcade_hub_theme";
+
+function getTheme() {
+  return localStorage.getItem(THEME_KEY) || "dark";
+}
+
+function setTheme(theme) {
+  localStorage.setItem(THEME_KEY, theme);
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
 function createDivider() {
   const div = document.createElement("div");
   div.className = "setting-divider";
@@ -166,6 +220,13 @@ export function openSettings() {
 export function closeSettings() {
   if (panelEl) {
     panelEl.classList.remove("open");
+  }
+}
+
+export function applyTheme() {
+  const theme = getTheme();
+  if (theme !== "dark") {
+    document.documentElement.setAttribute("data-theme", theme);
   }
 }
 

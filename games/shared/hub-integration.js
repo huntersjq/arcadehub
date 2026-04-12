@@ -7,6 +7,7 @@
 (function () {
   const COINS_KEY = "arcade_coins";
   const RECENT_KEY = "arcade_hub_recent";
+  const PLAY_COUNT_KEY = "arcade_hub_play_counts";
   const MAX_RECENT = 20;
 
   /** Detect the current game ID from the URL path. */
@@ -20,6 +21,7 @@
       "vox-runner": "vox-runner",
       "word-scramble": "stellar-speller",
       "rhythm-tap": "pulse-beat",
+      "tower-defense": "stellar-siege",
     };
     const path = window.location.pathname;
     for (const [slug, id] of Object.entries(slugMap)) {
@@ -51,6 +53,15 @@
       RECENT_KEY,
       JSON.stringify(recent.slice(0, MAX_RECENT))
     );
+    // Increment cumulative play counter
+    let counts = {};
+    try {
+      counts = JSON.parse(localStorage.getItem(PLAY_COUNT_KEY) || "{}");
+    } catch (_) {
+      counts = {};
+    }
+    counts[id] = (counts[id] || 0) + 1;
+    localStorage.setItem(PLAY_COUNT_KEY, JSON.stringify(counts));
   }
 
   /** Track time played — call on game start, returns a stop function. */

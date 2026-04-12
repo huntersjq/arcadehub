@@ -91,6 +91,16 @@ export const gameRegistry = [
     path: "games/rhythm-tap/",
     statsKeys: { highScores: "pulse_beat_highscores" },
   },
+  {
+    id: "stellar-siege",
+    slug: "tower-defense",
+    name: "Stellar Siege",
+    tagline: "Strategic tower defense against cosmic invaders.",
+    category: "action",
+    accentColor: "#22d3ee",
+    path: "games/tower-defense/",
+    statsKeys: { highScores: "stellar_siege_highscores" },
+  },
 ];
 
 function readJSON(key, fallback) {
@@ -115,10 +125,20 @@ export function getRecentlyPlayed() {
   return readJSON(RECENT_KEY, []);
 }
 
+const PLAY_COUNT_KEY = "arcade_hub_play_counts";
+
 export function recordPlay(gameId) {
   const recent = getRecentlyPlayed().filter((r) => r.id !== gameId);
   recent.unshift({ id: gameId, timestamp: Date.now() });
   writeJSON(RECENT_KEY, recent.slice(0, MAX_RECENT));
+  // Increment cumulative play counter
+  const counts = readJSON(PLAY_COUNT_KEY, {});
+  counts[gameId] = (counts[gameId] || 0) + 1;
+  writeJSON(PLAY_COUNT_KEY, counts);
+}
+
+export function getPlayCounts() {
+  return readJSON(PLAY_COUNT_KEY, {});
 }
 
 // ── Favorites ──
@@ -179,11 +199,13 @@ export function getGameStats(game) {
     }
   }
 
-  // Check recently played for this game's play count and last played
-  const recent = getRecentlyPlayed().filter((r) => r.id === game.id);
-  stats.timesPlayed = recent.length;
-  if (recent.length > 0) {
-    stats.lastPlayed = recent[0].timestamp;
+  // Play count from cumulative counter
+  const counts = getPlayCounts();
+  stats.timesPlayed = counts[game.id] || 0;
+  // Last played from recent list
+  const recentEntry = getRecentlyPlayed().find((r) => r.id === game.id);
+  if (recentEntry) {
+    stats.lastPlayed = recentEntry.timestamp;
   }
 
   return stats;
@@ -193,21 +215,21 @@ export function getGameStats(game) {
 
 export function getAggregateStats() {
   const recent = getRecentlyPlayed();
-  const totalPlays = recent.length;
+  const counts = getPlayCounts();
   const coins = getGlobalCoins();
+
+  // Total plays from cumulative counter
+  let totalPlays = 0;
+  for (const c of Object.values(counts)) totalPlays += c;
 
   // Count unique games played
   const uniqueGames = new Set(recent.map((r) => r.id));
   const gamesPlayed = uniqueGames.size;
 
-  // Find most played game
-  const playCounts = {};
-  for (const r of recent) {
-    playCounts[r.id] = (playCounts[r.id] || 0) + 1;
-  }
+  // Find most played game from cumulative counter
   let topGameId = null;
   let topCount = 0;
-  for (const [id, count] of Object.entries(playCounts)) {
+  for (const [id, count] of Object.entries(counts)) {
     if (count > topCount) {
       topGameId = id;
       topCount = count;

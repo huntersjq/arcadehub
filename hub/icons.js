@@ -324,6 +324,48 @@ function drawPulseBeat(ctx, t, w, h) {
   }
 }
 
+// ── Stellar Siege: tower + incoming dots ──
+function drawStellarSiege(ctx, t, w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // Tower base
+  ctx.fillStyle = "#22d3ee";
+  ctx.shadowColor = "#22d3ee";
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 8, 0, TAU);
+  ctx.fill();
+
+  // Rotating barrel
+  const angle = t * 1.5;
+  ctx.strokeStyle = "#22d3ee";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(angle) * 14, cy + Math.sin(angle) * 14);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Incoming enemies (orange dots circling inward)
+  for (let i = 0; i < 4; i++) {
+    const a = t * 0.8 + (i * TAU) / 4;
+    const r = 22 + Math.sin(t * 2 + i) * 4;
+    ctx.fillStyle = "#f97316";
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 3, 0, TAU);
+    ctx.fill();
+  }
+
+  // Range circle
+  ctx.strokeStyle = "rgba(34, 211, 238, 0.2)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, TAU);
+  ctx.stroke();
+}
+
 // ── Icon Registry ──
 
 const iconDrawers = {
@@ -335,6 +377,7 @@ const iconDrawers = {
   "vox-runner": drawVoxRunner,
   "stellar-speller": drawStellarSpeller,
   "pulse-beat": drawPulseBeat,
+  "stellar-siege": drawStellarSiege,
 };
 
 /**

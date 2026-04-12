@@ -3,7 +3,12 @@
  * Shows player stats, favorite game, achievement progress.
  */
 
-import { getAggregateStats, getRecentlyPlayed, gameRegistry } from "./data.js";
+import {
+  getAggregateStats,
+  getRecentlyPlayed,
+  gameRegistry,
+  getGameStats,
+} from "./data.js";
 import { getAchievementProgress } from "./achievements.js";
 
 let panelEl = null;
@@ -75,10 +80,10 @@ function renderProfileContent() {
 
   const statItems = [
     { label: "Total Plays", value: stats.totalPlays.toLocaleString() },
+    { label: "Play Time", value: formatPlayTime() },
     { label: "Games Tried", value: `${stats.gamesPlayed} / ${stats.totalGames}` },
     { label: "Coins Earned", value: stats.coins.toLocaleString() },
     { label: "Achievements", value: `${achProgress.earned} / ${achProgress.total}` },
-    { label: "Top Game", value: stats.topGame || "None yet" },
     { label: "Member Since", value: getMemberSince(recent) },
   ];
 
@@ -100,6 +105,79 @@ function renderProfileContent() {
   }
 
   container.appendChild(statsGrid);
+
+  // Leaderboard section
+  renderLeaderboard(container);
+}
+
+function formatPlayTime() {
+  let data = {};
+  try {
+    data = JSON.parse(localStorage.getItem("arcade_hub_playtime") || "{}");
+  } catch (_) {
+    return "0m";
+  }
+  let total = 0;
+  for (const s of Object.values(data)) total += s;
+  if (total < 60) return `${total}s`;
+  const mins = Math.floor(total / 60);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
+
+function renderLeaderboard(container) {
+  const heading = document.createElement("h3");
+  heading.className = "profile-lb-heading";
+  heading.textContent = "Leaderboard";
+  container.appendChild(heading);
+
+  const entries = gameRegistry
+    .map((game) => {
+      const s = getGameStats(game);
+      return { name: game.name, accent: game.accentColor, score: s.bestScore };
+    })
+    .filter((e) => e.score != null && e.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (entries.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "profile-lb-empty";
+    empty.textContent = "Play some games to see your scores here!";
+    container.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "profile-lb-list";
+
+  for (let i = 0; i < entries.length; i++) {
+    const row = document.createElement("div");
+    row.className = "profile-lb-row";
+
+    const rank = document.createElement("span");
+    rank.className = "profile-lb-rank";
+    rank.textContent = i === 0 ? "\u{1F947}" : i === 1 ? "\u{1F948}" : i === 2 ? "\u{1F949}" : `#${i + 1}`;
+    row.appendChild(rank);
+
+    const name = document.createElement("span");
+    name.className = "profile-lb-name";
+    name.textContent = entries[i].name;
+    name.style.color = entries[i].accent;
+    row.appendChild(name);
+
+    const score = document.createElement("span");
+    score.className = "profile-lb-score";
+    score.textContent = typeof entries[i].score === "number"
+      ? entries[i].score.toLocaleString()
+      : String(entries[i].score);
+    row.appendChild(score);
+
+    list.appendChild(row);
+  }
+
+  container.appendChild(list);
 }
 
 function getRankTitle(plays, achievements) {
