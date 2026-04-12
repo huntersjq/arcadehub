@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse Beat | Arcade Hub</title>
+    <link rel="stylesheet" href="../shared/hub-nav.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #08080e;
+        --lane1: #ef4444;
+        --lane2: #3b82f6;
+        --lane3: #22c55e;
+        --lane4: #f59e0b;
+        --surface: #12121c;
+        --text: #e8e8f0;
+        --text-dim: #6b6b80;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Outfit', system-ui, sans-serif;
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 500px;
+        flex: 1;
+        touch-action: none;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8,8,14,0.94);
+        z-index: 20;
+        gap: 1.2rem;
+      }
+      .overlay h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--lane1), var(--lane4));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .overlay p { color: var(--text-dim); font-size: 1.1rem; text-align: center; max-width: 380px; }
+      .overlay .stat { font-family: 'JetBrains Mono', monospace; color: var(--text); font-size: 1.2rem; }
+      .play-btn {
+        padding: 0.8rem 2.5rem;
+        font-size: 1.1rem;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--lane1), var(--lane4));
+        color: #fff;
+        cursor: pointer;
+        transition: transform 0.15s;
+      }
+      .play-btn:hover { transform: scale(1.05); }
+
+      #hud {
+        position: fixed;
+        top: 0.8rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 2rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .hud-item { text-align: center; }
+      .hud-label { color: var(--text-dim); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; }
+      .hud-value { font-weight: 700; font-size: 1.1rem; }
+
+      @media (max-width: 480px) {
+        canvas { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud" style="display:none">
+      <div class="hud-item">
+        <div class="hud-label">Score</div>
+        <div class="hud-value" id="score">0</div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Combo</div>
+        <div class="hud-value" id="combo">0</div>
+      </div>
+      <div class="hud-item">
+        <div class="hud-label">Accuracy</div>
+        <div class="hud-value" id="accuracy">100%</div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="overlay" id="startScreen">
+      <h2>Pulse Beat</h2>
+      <p>Tap the notes as they reach the hit zone. Use keys D, F, J, K or tap the lanes on mobile.</p>
+      <button class="play-btn" id="playBtn">PLAY</button>
+    </div>
+
+    <div class="overlay" id="gameOverScreen" style="display:none">
+      <h2>Song Complete</h2>
+      <p class="stat">Score: <b id="finalScore">0</b></p>
+      <p class="stat">Max Combo: <b id="maxCombo">0</b></p>
+      <p class="stat">Accuracy: <b id="finalAccuracy">0%</b></p>
+      <p class="stat" id="gradeDisplay" style="font-size:2rem"></p>
+      <button class="play-btn" id="retryBtn">PLAY AGAIN</button>
+    </div>
+
+    <script src="../shared/hub-integration.js"></script>
+    <script src="../shared/hub-nav.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>

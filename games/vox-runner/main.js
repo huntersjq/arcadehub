@@ -112,17 +112,17 @@ class VoxRunner extends Game {
     document.getElementById("rewardText").innerText =
       `+${coinsEarned} Arcade Coins Earned!`;
 
-    // Add to global coins if parent structure allows it
-    if (window.parent && window.parent.addArcadeCoins) {
-      window.parent.addArcadeCoins(coinsEarned);
-    } else {
-      // Fallback if not inside iframe or shared global context
-      let currentCoins = parseInt(
-        localStorage.getItem("arcade_coins") || "0",
-        10,
-      );
-      localStorage.setItem("arcade_coins", currentCoins + coinsEarned);
-    }
+    if (window.ArcadeHub) window.ArcadeHub.addCoins(coinsEarned);
+    this.saveHighScore(dist);
+  }
+
+  saveHighScore(distance) {
+    const KEY = "vox_runner_highscores";
+    let scores = [];
+    try { scores = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) { scores = []; }
+    scores.push({ score: distance, date: new Date().toLocaleDateString() });
+    scores.sort((a, b) => b.score - a.score);
+    localStorage.setItem(KEY, JSON.stringify(scores.slice(0, 5)));
   }
 
   updateUI() {

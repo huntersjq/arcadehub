@@ -626,6 +626,8 @@ class BulletHeaven extends Game {
       // Player collision (GameOver/Reset)
       if (distToPlayer < en.radius + this.player.radius + 5) {
         this.savePersistentData();
+        const coinsEarned = Math.floor(this.kills / 10);
+        if (window.ArcadeHub) window.ArcadeHub.addCoins(coinsEarned);
         this.createExplosion(
           this.player.pos.x,
           this.player.pos.y,

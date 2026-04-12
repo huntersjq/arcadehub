@@ -174,6 +174,15 @@ class NebulaRefinery {
       upgrades: this.upgrades.map((u) => ({ id: u.id, level: u.level })),
     };
     localStorage.setItem("nebula_refinery_save", JSON.stringify(data));
+    // Convert stardust to arcade coins (1 coin per 100 stardust earned)
+    const coinsFromDust = Math.floor(this.totalStardust / 100);
+    const KEY = "nebula_coins_credited";
+    const prev = parseInt(localStorage.getItem(KEY) || "0", 10);
+    const delta = coinsFromDust - prev;
+    if (delta > 0 && window.ArcadeHub) {
+      window.ArcadeHub.addCoins(delta);
+      localStorage.setItem(KEY, String(coinsFromDust));
+    }
   }
 
   loadGame() {

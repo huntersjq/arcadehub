@@ -299,7 +299,19 @@ class TileMatchRPG {
   }
 
   gameOverState() {
+    const coinsEarned = Math.floor(this.score / 50);
+    if (window.ArcadeHub) window.ArcadeHub.addCoins(coinsEarned);
+    this.saveHighScore();
     document.getElementById("game-over").style.display = "flex";
+  }
+
+  saveHighScore() {
+    const KEY = "stellar_match_highscores";
+    let scores = [];
+    try { scores = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) { scores = []; }
+    scores.push({ score: this.score, stage: this.stage, date: new Date().toLocaleDateString() });
+    scores.sort((a, b) => b.score - a.score);
+    localStorage.setItem(KEY, JSON.stringify(scores.slice(0, 5)));
   }
 }
 

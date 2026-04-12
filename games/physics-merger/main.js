@@ -615,6 +615,8 @@ class CosmicMerge extends Game {
     if (gameOverTriggered && !this.gameOver) {
       this.gameOver = true;
       this.saveHighScore();
+      const coinsEarned = Math.floor(this.score / 100);
+      if (window.ArcadeHub) window.ArcadeHub.addCoins(coinsEarned);
       document.getElementById("gameOver").style.display = "flex";
       document.getElementById("finalScoreVal").innerText =
         this.score.toLocaleString();

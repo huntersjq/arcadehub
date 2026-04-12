@@ -39,7 +39,7 @@ export const gameRegistry = [
     category: "action",
     accentColor: "#00f2ff",
     path: "games/neon-dash/",
-    statsKeys: {},
+    statsKeys: { highScores: "neon_dash_highscores" },
   },
   {
     id: "stellar-match",
@@ -49,7 +49,7 @@ export const gameRegistry = [
     category: "puzzle",
     accentColor: "#a855f7",
     path: "games/tile-match/",
-    statsKeys: {},
+    statsKeys: { highScores: "stellar_match_highscores" },
   },
   {
     id: "nebula-refinery",
@@ -69,7 +69,27 @@ export const gameRegistry = [
     category: "action",
     accentColor: "#ec4899",
     path: "games/vox-runner/",
-    statsKeys: {},
+    statsKeys: { highScores: "vox_runner_highscores" },
+  },
+  {
+    id: "stellar-speller",
+    slug: "word-scramble",
+    name: "Stellar Speller",
+    tagline: "Unscramble cosmic words against the clock. Build streaks!",
+    category: "puzzle",
+    accentColor: "#8b5cf6",
+    path: "games/word-scramble/",
+    statsKeys: { highScores: "word_scramble_highscores" },
+  },
+  {
+    id: "pulse-beat",
+    slug: "rhythm-tap",
+    name: "Pulse Beat",
+    tagline: "Rhythm-action with procedural beats. Tap to the pulse!",
+    category: "action",
+    accentColor: "#f43f5e",
+    path: "games/rhythm-tap/",
+    statsKeys: { highScores: "pulse_beat_highscores" },
   },
 ];
 

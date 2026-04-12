@@ -12,13 +12,13 @@ const ACH_KEY = "arcade_hub_achievements";
 export const achievementDefs = [
   // Global achievements
   { id: "first-play", name: "First Steps", desc: "Play any game for the first time", icon: "\u{1F476}", check: (s) => s.totalPlays >= 1 },
-  { id: "explorer", name: "Explorer", desc: "Try all 6 games", icon: "\u{1F30D}", check: (s) => s.gamesPlayed >= 6 },
+  { id: "explorer", name: "Explorer", desc: "Try all 8 games", icon: "\u{1F30D}", check: (s) => s.gamesPlayed >= 8 },
   { id: "coin-100", name: "Penny Pincher", desc: "Earn 100 Arcade Coins", icon: "\u{1FA99}", check: (s) => s.coins >= 100 },
   { id: "coin-1000", name: "Big Spender", desc: "Earn 1,000 Arcade Coins", icon: "\u{1F4B0}", check: (s) => s.coins >= 1000 },
   { id: "plays-10", name: "Regular", desc: "Play 10 total sessions", icon: "\u{1F3AE}", check: (s) => s.totalPlays >= 10 },
   { id: "plays-50", name: "Dedicated", desc: "Play 50 total sessions", icon: "\u{1F525}", check: (s) => s.totalPlays >= 50 },
   { id: "master-3", name: "Multi-Talented", desc: "Score in 3 different games", icon: "\u{1F3C6}", check: (s) => s.gamesMastered >= 3 },
-  { id: "master-all", name: "Grand Master", desc: "Score in all 6 games", icon: "\u{1F451}", check: (s) => s.gamesMastered >= 6 },
+  { id: "master-all", name: "Grand Master", desc: "Score in all 8 games", icon: "\u{1F451}", check: (s) => s.gamesMastered >= 8 },
 
   // Per-game achievements (Cosmic Merge)
   { id: "cm-play", name: "Stargazer", desc: "Play Cosmic Merge", icon: "\u{1F31F}", gameId: "cosmic-merge", check: (s, gs) => gs.timesPlayed >= 1 },
@@ -40,6 +40,14 @@ export const achievementDefs = [
 
   // Per-game achievements (Vox Runner)
   { id: "vr-play", name: "Block Runner", desc: "Play Vox Runner", icon: "\u{1F4E6}", gameId: "vox-runner", check: (s, gs) => gs.timesPlayed >= 1 },
+
+  // Per-game achievements (Stellar Speller)
+  { id: "ss-play", name: "Wordsmith", desc: "Play Stellar Speller", icon: "\u{1F4DD}", gameId: "stellar-speller", check: (s, gs) => gs.timesPlayed >= 1 },
+  { id: "ss-score", name: "Lexicon", desc: "Score 500+ in Stellar Speller", icon: "\u{1F4DA}", gameId: "stellar-speller", check: (s, gs) => gs.bestScore >= 500 },
+
+  // Per-game achievements (Pulse Beat)
+  { id: "pb-play", name: "Beat Dropper", desc: "Play Pulse Beat", icon: "\u{1F3B5}", gameId: "pulse-beat", check: (s, gs) => gs.timesPlayed >= 1 },
+  { id: "pb-score", name: "Rhythm Master", desc: "Score 10,000+ in Pulse Beat", icon: "\u{1F3B6}", gameId: "pulse-beat", check: (s, gs) => gs.bestScore >= 10000 },
 ];
 
 // ── Storage ──

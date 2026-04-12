@@ -231,6 +231,99 @@ function drawVoxRunner(ctx, t, w, h) {
   ctx.fillRect(cx - 3, h - 12 - jumpY - 2, 6, 2);
 }
 
+// ── Stellar Speller: floating letter tiles ──
+function drawStellarSpeller(ctx, t, w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const letters = "SPELL";
+  ctx.font = "bold 10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (let i = 0; i < letters.length; i++) {
+    const angle = (TAU / letters.length) * i + t * 0.8;
+    const r = 16 + Math.sin(t * 2 + i) * 4;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    const hue = 260 + i * 15;
+
+    // Tile background
+    ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.25)`;
+    ctx.beginPath();
+    ctx.roundRect(x - 6, y - 6, 12, 12, 2);
+    ctx.fill();
+
+    // Letter
+    ctx.fillStyle = `hsl(${hue}, 80%, 75%)`;
+    ctx.fillText(letters[i], x, y + 1);
+  }
+
+  // Central glow
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10);
+  grad.addColorStop(0, "rgba(139, 92, 246, 0.3)");
+  grad.addColorStop(1, "transparent");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 10, 0, TAU);
+  ctx.fill();
+}
+
+// ── Pulse Beat: falling note lanes ──
+function drawPulseBeat(ctx, t, w, h) {
+  const laneW = w / 4;
+  const colors = ["#ef4444", "#3b82f6", "#22c55e", "#f59e0b"];
+
+  // Lane dividers
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(laneW * i, 0);
+    ctx.lineTo(laneW * i, h);
+    ctx.stroke();
+  }
+
+  // Hit line
+  const hitY = h - 12;
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, hitY);
+  ctx.lineTo(w, hitY);
+  ctx.stroke();
+
+  // Hit zone dots
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = colors[i] + "40";
+    ctx.beginPath();
+    ctx.arc(laneW * i + laneW / 2, hitY, 3, 0, TAU);
+    ctx.fill();
+  }
+
+  // Falling notes
+  const speed = t * 30;
+  for (let i = 0; i < 6; i++) {
+    const lane = (i * 7 + Math.floor(t * 2)) % 4;
+    const y = ((speed + i * 15) % (h + 10)) - 5;
+    const cx = laneW * lane + laneW / 2;
+    const color = colors[lane];
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx, y, 3.5, 0, TAU);
+    ctx.fill();
+
+    // Glow
+    const grad = ctx.createRadialGradient(cx, y, 1, cx, y, 7);
+    grad.addColorStop(0, color + "40");
+    grad.addColorStop(1, "transparent");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, y, 7, 0, TAU);
+    ctx.fill();
+  }
+}
+
 // ── Icon Registry ──
 
 const iconDrawers = {
@@ -240,6 +333,8 @@ const iconDrawers = {
   "stellar-match": drawStellarMatch,
   "nebula-refinery": drawNebulaRefinery,
   "vox-runner": drawVoxRunner,
+  "stellar-speller": drawStellarSpeller,
+  "pulse-beat": drawPulseBeat,
 };
 
 /**

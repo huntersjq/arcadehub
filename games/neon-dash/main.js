@@ -159,9 +159,21 @@ class NeonDash extends Game {
 
   triggerGameOver() {
     this.gameOver = true;
+    const coinsEarned = Math.floor(this.distance / 10);
+    if (window.ArcadeHub) window.ArcadeHub.addCoins(coinsEarned);
+    this.saveHighScore();
     document.getElementById("gameOver").style.display = "flex";
     document.getElementById("finalDist").innerText = Math.floor(this.distance);
     document.getElementById("finalScore").innerText = this.score;
+  }
+
+  saveHighScore() {
+    const KEY = "neon_dash_highscores";
+    let scores = [];
+    try { scores = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (_) { scores = []; }
+    scores.push({ score: this.score, distance: Math.floor(this.distance), date: new Date().toLocaleDateString() });
+    scores.sort((a, b) => b.score - a.score);
+    localStorage.setItem(KEY, JSON.stringify(scores.slice(0, 5)));
   }
 
   updateUI() {

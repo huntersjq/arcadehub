@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Name | Arcade Hub</title>
+    <link rel="stylesheet" href="../shared/hub-nav.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #0a0a0f;
+        color: #fff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden;
+        height: 100dvh;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.85);
+        z-index: 20;
+        gap: 1rem;
+      }
+      .overlay h2 {
+        font-size: 2rem;
+        letter-spacing: 0.05em;
+      }
+      .overlay p {
+        color: #aaa;
+        font-size: 1.1rem;
+      }
+      .overlay button {
+        padding: 0.75rem 2rem;
+        font-size: 1rem;
+        border: none;
+        border-radius: 8px;
+        background: var(--accent, #6366f1);
+        color: #fff;
+        cursor: pointer;
+        transition: transform 0.15s;
+      }
+      .overlay button:hover { transform: scale(1.05); }
+      #hud {
+        position: fixed;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 2rem;
+        font-size: 1.1rem;
+        font-family: 'JetBrains Mono', monospace;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .hud-item span { color: #aaa; }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud" style="display:none">
+      <div class="hud-item"><span>SCORE</span> <b id="score">0</b></div>
+    </div>
+
+    <div class="overlay" id="startScreen">
+      <h2>GAME NAME</h2>
+      <p>Short description of the game.</p>
+      <button onclick="game.start()">PLAY</button>
+    </div>
+
+    <div class="overlay" id="gameOver" style="display:none">
+      <h2>GAME OVER</h2>
+      <p>Score: <b id="finalScore">0</b></p>
+      <button onclick="game.restart()">RETRY</button>
+    </div>
+
+    <script src="../shared/hub-integration.js"></script>
+    <script src="../shared/hub-nav.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
