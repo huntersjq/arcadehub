@@ -45,6 +45,12 @@ export function navigateWithTransition(cardEl, path) {
   overlay.style.setProperty("--cy", `${cy}px`);
   overlay.style.setProperty("--max-r", `${maxDist}px`);
 
+  // Skip animation for reduced motion preference
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.location.href = path;
+    return;
+  }
+
   overlay.classList.add("active");
 
   // Navigate after animation completes

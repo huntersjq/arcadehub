@@ -15,6 +15,8 @@ export function setupFilters() {
   // Build filter chips
   const chipContainer = document.createElement("div");
   chipContainer.className = "filter-chips";
+  chipContainer.setAttribute("role", "tablist");
+  chipContainer.setAttribute("aria-label", "Filter games by category");
 
   const allChip = createChip("all", "All");
   allChip.classList.add("active");
@@ -51,7 +53,9 @@ export function setupFilters() {
 
     activeCategory = chip.dataset.category;
     for (const c of chipContainer.querySelectorAll(".filter-chip")) {
-      c.classList.toggle("active", c.dataset.category === activeCategory);
+      const isActive = c.dataset.category === activeCategory;
+      c.classList.toggle("active", isActive);
+      c.setAttribute("aria-selected", String(isActive));
     }
 
     // Clear search when switching categories
@@ -82,5 +86,7 @@ function createChip(category, label) {
   btn.className = "filter-chip";
   btn.dataset.category = category;
   btn.textContent = label;
+  btn.setAttribute("role", "tab");
+  btn.setAttribute("aria-selected", category === "all" ? "true" : "false");
   return btn;
 }

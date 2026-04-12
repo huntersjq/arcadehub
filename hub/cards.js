@@ -113,6 +113,9 @@ function createCard(game) {
   card.dataset.category = game.category;
   card.dataset.path = game.path;
   card.style.setProperty("--accent", game.accentColor);
+  card.setAttribute("role", "link");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", `Play ${game.name} — ${game.tagline}`);
 
   card.appendChild(buildCardDOM(game, stats, favorited));
   return card;
@@ -230,6 +233,33 @@ export function setupCardEvents(onNavigate) {
       }
     }
   });
+
+  // Keyboard navigation for cards
+  container.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const card = e.target.closest(".game-card");
+    if (!card) return;
+    e.preventDefault();
+    card.click();
+  });
+
+  // Prefetch game assets on hover
+  const prefetched = new Set();
+  container.addEventListener("pointerenter", (e) => {
+    const card = e.target.closest(".game-card");
+    if (!card) return;
+    const path = card.dataset.path;
+    if (!path || prefetched.has(path)) return;
+    prefetched.add(path);
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href = path;
+    document.head.appendChild(link);
+    const jsLink = document.createElement("link");
+    jsLink.rel = "prefetch";
+    jsLink.href = path + "main.js";
+    document.head.appendChild(jsLink);
+  }, true);
 }
 
 /**
