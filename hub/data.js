@@ -101,6 +101,16 @@ export const gameRegistry = [
     path: "games/tower-defense/",
     statsKeys: { highScores: "stellar_siege_highscores" },
   },
+  {
+    id: "texas-holdem",
+    slug: "texas-holdem",
+    name: "德州扑克",
+    tagline: "中文版无限注德州扑克 · 支持 AI 与跨设备联机",
+    category: "puzzle",
+    accentColor: "#f5c518",
+    path: "games/texas-holdem/",
+    statsKeys: { highScores: "holdem_highscores" },
+  },
 ];
 
 function readJSON(key, fallback) {

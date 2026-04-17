@@ -1,0 +1,880 @@
+// 德州扑克 - 主编排
+// 职责：
+//   1. 大厅交互（4 种模式 tab 切换、表单收集）
+//   2. 根据模式构造 Game + 可选传输层（LocalChannel / PeerChannel）
+//   3. 事件循环：消费 game.drainEvents() → 派发到 UI / 调度 AI / 广播网络
+//   4. 本地多人 Hot-Seat 隐私屏切换
+//   5. 联机房主权威 + 客户端镜像
+//   6. 结算弹窗 + 牌局结束渲染
+
+import { Game, STAGE, STAGE_NAME_CN } from "./engine/game.js";
+import { SUIT_SYMBOL } from "./engine/deck.js";
+import { HAND_NAME_CN } from "./engine/hand.js";
+import { decide, decideEmoji } from "./ai/bot.js";
+import { TableView, renderCardEl } from "./ui/table.js";
+import { Controls } from "./ui/controls.js";
+import { Chat } from "./ui/chat.js";
+import { PrivacyShield } from "./ui/privacy.js";
+import { LocalChannel, PeerChannel, genRoomCode } from "./net/channel.js";
+
+// ── 全局状态 ──
+
+const root = document;
+const screens = {
+  lobby: root.getElementById("lobby"),
+  privacy: root.getElementById("privacyScreen"),
+  waiting: root.getElementById("waitingRoom"),
+  table: root.getElementById("table"),
+};
+
+let currentMode = "solo";           // solo | hotseat | multitab | online
+let game = null;                    // Game 实例（权威端持有）
+let channel = null;                 // LocalChannel | PeerChannel
+let isHost = true;                  // 联机中是否为房主
+let selfId = null;                  // 本地玩家 id（单人/hot-seat: 当前人类；联机: 对应 peerId）
+let humanPlayerIds = [];            // 本地多人时所有真人 id 列表
+let activeHumanIndex = 0;           // 当前轮到的人类玩家索引
+let aiScheduleTimer = null;         // AI 行动延迟定时器
+let tableView = null;
+let controls = null;
+let chat = null;
+let privacy = null;
+let ownHoleCards = {};              // 每个真人的底牌（本地/hot-seat: map; 联机客户端: 只有自己的）
+let revealedHoles = {};             // 摊牌时揭示的底牌
+let latestSnapshot = null;          // 客户端镜像用
+let pendingHandResult = null;       // 结算信息缓存
+let soundOn = true;
+let waitingPlayers = [];            // 等待房玩家列表（联机）
+
+// ── 屏幕切换 ──
+
+function showScreen(name) {
+  for (const [k, el] of Object.entries(screens)) {
+    if (!el) continue;
+    el.style.display = k === name ? "" : "none";
+  }
+}
+
+// ── 启动 ──
+
+function init() {
+  // 默认昵称
+  const nameInput = root.getElementById("nameInput");
+  const savedName = localStorage.getItem("holdem_name");
+  nameInput.value = savedName || randomName();
+
+  bindLobbyEvents();
+  bindTableUIEvents();
+
+  showScreen("lobby");
+}
+
+function randomName() {
+  const names = ["玩家", "小明", "小红", "阿强", "Ace", "Lucky", "Mike", "Ken"];
+  return names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 100);
+}
+
+function bindLobbyEvents() {
+  // Tab 切换
+  const tabs = root.querySelectorAll(".lobby-tab");
+  tabs.forEach((t) => {
+    t.addEventListener("click", () => {
+      tabs.forEach((x) => x.classList.remove("active"));
+      t.classList.add("active");
+      currentMode = t.dataset.mode;
+      updateLobbyFields();
+    });
+  });
+  updateLobbyFields();
+
+  // 开始按钮
+  root.getElementById("startBtn").addEventListener("click", () => {
+    onStartClicked().catch((e) => {
+      console.error(e);
+      alert("启动失败：" + (e?.message || e));
+    });
+  });
+
+  // 等待房
+  root.getElementById("hostStartBtn").addEventListener("click", () => startOnlineGame());
+  root.getElementById("leaveRoomBtn").addEventListener("click", () => leaveRoom());
+  root.getElementById("copyRoomBtn").addEventListener("click", () => {
+    const code = root.getElementById("roomCodeDisplay").textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(code);
+    const btn = root.getElementById("copyRoomBtn");
+    const orig = btn.textContent;
+    btn.textContent = "已复制";
+    setTimeout(() => (btn.textContent = orig), 1200);
+  });
+
+  root.getElementById("privacyReveal"); // 已在 PrivacyShield 中绑定
+}
+
+function updateLobbyFields() {
+  const hotseatFields = root.getElementById("hotseatFields");
+  const aiFields = root.getElementById("aiFields");
+  const onlineFields = root.getElementById("onlineFields");
+
+  hotseatFields.style.display = currentMode === "hotseat" ? "" : "none";
+  onlineFields.style.display = (currentMode === "multitab" || currentMode === "online") ? "" : "none";
+  aiFields.style.display = (currentMode === "solo" || currentMode === "hotseat") ? "" : "none";
+}
+
+function bindTableUIEvents() {
+  root.getElementById("leaveBtn").addEventListener("click", () => {
+    if (!confirm("确定离开当前牌局？")) return;
+    cleanupGame();
+    showScreen("lobby");
+  });
+  root.getElementById("soundToggle").addEventListener("click", () => {
+    soundOn = !soundOn;
+    root.getElementById("soundToggle").textContent = soundOn ? "🔊" : "🔇";
+  });
+  root.getElementById("nextHandBtn").addEventListener("click", () => {
+    root.getElementById("handResult").style.display = "none";
+    if (isHost && game && game.stage !== STAGE.GAME_OVER) {
+      startNextHand();
+    }
+  });
+  root.getElementById("rematchBtn").addEventListener("click", () => {
+    root.getElementById("gameOver").style.display = "none";
+    cleanupGame();
+    showScreen("lobby");
+  });
+  root.getElementById("backLobbyBtn").addEventListener("click", () => {
+    root.getElementById("gameOver").style.display = "none";
+    cleanupGame();
+    showScreen("lobby");
+  });
+}
+
+// ── 开始游戏 ──
+
+async function onStartClicked() {
+  const name = root.getElementById("nameInput").value.trim() || "玩家";
+  const stack = parseInt(root.getElementById("stackSelect").value, 10);
+  const blindsMode = root.getElementById("blindsSelect").value;
+  localStorage.setItem("holdem_name", name);
+
+  if (currentMode === "solo") {
+    startLocalGame({ name, stack, blindsMode, humanCount: 1, humanNames: [name] });
+  } else if (currentMode === "hotseat") {
+    const humanCount = parseInt(root.getElementById("humanCount").value, 10);
+    const namesRaw = root.getElementById("humanNames").value.trim();
+    let humanNames = namesRaw ? namesRaw.split(/[,，]/).map((s) => s.trim()).filter(Boolean) : [];
+    if (humanNames.length === 0) humanNames = [name];
+    while (humanNames.length < humanCount) humanNames.push("玩家" + (humanNames.length + 1));
+    humanNames = humanNames.slice(0, humanCount);
+    startLocalGame({ name, stack, blindsMode, humanCount, humanNames, hotseat: true });
+  } else if (currentMode === "multitab" || currentMode === "online") {
+    await startOnlineFlow(name, stack, blindsMode);
+  }
+}
+
+function buildPlayersList({ humanNames, aiCount, aiLevel, stack }) {
+  const players = [];
+  humanNames.forEach((n, i) => {
+    players.push({ id: "human_" + i, name: n, stack, isHuman: true });
+  });
+  for (let i = 0; i < aiCount; i++) {
+    players.push({ id: "ai_" + i, name: "AI-" + (i + 1), stack, isHuman: false, aiLevel });
+  }
+  return players;
+}
+
+function startLocalGame({ name, stack, blindsMode, humanCount, humanNames, hotseat = false }) {
+  const aiCount = parseInt(root.getElementById("aiCount").value, 10);
+  const aiLevel = root.getElementById("aiLevel").value;
+  const players = buildPlayersList({ humanNames, aiCount, aiLevel, stack });
+
+  if (players.length < 2) {
+    alert("至少需要 2 位玩家");
+    return;
+  }
+
+  // 随机座位顺序
+  shuffleInPlace(players);
+
+  game = new Game({
+    players,
+    smallBlind: blindsMode === "tourney" ? 25 : 50,
+    bigBlind: blindsMode === "tourney" ? 50 : 100,
+    blindsMode,
+  });
+
+  humanPlayerIds = players.filter((p) => p.isHuman).map((p) => p.id);
+  activeHumanIndex = 0;
+  selfId = hotseat ? humanPlayerIds[0] : humanPlayerIds[0];
+  ownHoleCards = {};
+  revealedHoles = {};
+  isHost = true;
+
+  mountTableUI({ selfName: humanNames[0] || name, hotseat });
+  showScreen("table");
+  game.startHand();
+  pumpEvents();
+}
+
+async function startOnlineFlow(name, stack, blindsMode) {
+  const roomCode = root.getElementById("roomCode").value.trim().toUpperCase();
+  const ChannelCtor = currentMode === "multitab" ? LocalChannel : PeerChannel;
+  isHost = !roomCode;
+  const actualRoomCode = roomCode || genRoomCode();
+
+  channel = new ChannelCtor({ roomCode: actualRoomCode, isHost, name });
+
+  try {
+    await channel.open();
+  } catch (e) {
+    alert("打开房间失败：" + (e?.message || e));
+    channel = null;
+    return;
+  }
+
+  selfId = channel.getSelfId();
+  root.getElementById("roomCodeDisplay").textContent = channel.getRoomCode();
+
+  // 等待房 UI
+  const hostStartBtn = root.getElementById("hostStartBtn");
+  const waitingHint = root.getElementById("waitingHint");
+  if (isHost) {
+    waitingPlayers = [{ id: selfId, name, stack, isHost: true, ready: true }];
+    hostStartBtn.style.display = "";
+    waitingHint.textContent = "把房间码分享给朋友即可加入";
+    renderWaitingPlayers();
+
+    channel.onMessage((msg, from) => hostHandleLobbyMessage(msg, from, { stack, blindsMode }));
+  } else {
+    waitingPlayers = [];
+    hostStartBtn.style.display = "none";
+    waitingHint.textContent = "已连接房间，等待房主开始...";
+    renderWaitingPlayers();
+
+    channel.onMessage((msg, from) => clientHandleMessage(msg, from));
+    channel.send({ type: "hello", name, peerId: selfId });
+  }
+
+  // 存储本地配置以便开始时使用
+  window._holdemOnlineConfig = { name, stack, blindsMode };
+
+  showScreen("waiting");
+}
+
+function hostHandleLobbyMessage(msg, from, lobbyCfg) {
+  if (msg.type === "hello") {
+    // 分配 id
+    const pid = msg.peerId || from;
+    if (!waitingPlayers.find((p) => p.id === pid)) {
+      waitingPlayers.push({
+        id: pid,
+        name: msg.name || "访客",
+        stack: lobbyCfg.stack,
+        isHost: false,
+        ready: true,
+      });
+    }
+    // welcome 给新来者
+    channel.send({
+      type: "welcome",
+      selfId: pid,
+      players: waitingPlayers.map((p) => ({ id: p.id, name: p.name })),
+      config: { stack: lobbyCfg.stack, blindsMode: lobbyCfg.blindsMode },
+    }, pid);
+    // 广播最新名单
+    channel.send({ type: "lobby_update", players: waitingPlayers.map((p) => ({ id: p.id, name: p.name })) });
+    renderWaitingPlayers();
+  } else if (msg.type === "chat") {
+    chat?.addMessage({ sender: msg.sender, text: msg.text });
+    // 广播给其他人
+    channel.send({ type: "chat", sender: msg.sender, text: msg.text });
+  } else if (msg.type === "leave") {
+    waitingPlayers = waitingPlayers.filter((p) => p.id !== msg.playerId);
+    renderWaitingPlayers();
+    channel.send({ type: "lobby_update", players: waitingPlayers.map((p) => ({ id: p.id, name: p.name })) });
+  }
+  // 开局后的消息（action）交由 runtime handler 处理
+}
+
+function clientHandleMessage(msg, from) {
+  if (msg.type === "welcome") {
+    selfId = msg.selfId;
+    waitingPlayers = msg.players.map((p) => ({ id: p.id, name: p.name }));
+    renderWaitingPlayers();
+  } else if (msg.type === "lobby_update") {
+    waitingPlayers = msg.players;
+    renderWaitingPlayers();
+  } else if (msg.type === "start_game") {
+    // 客户端无需构建 Game，仅等待 state/events
+    const cfg = msg.config || {};
+    mountTableUI({ selfName: waitingPlayers.find((p) => p.id === selfId)?.name || "玩家", hotseat: false });
+    ownHoleCards = {};
+    revealedHoles = {};
+    showScreen("table");
+  } else if (msg.type === "state") {
+    latestSnapshot = msg.state;
+    renderMirror();
+  } else if (msg.type === "events") {
+    // 按事件处理（客户端视角）
+    for (const ev of msg.events) handleMirrorEvent(ev);
+  } else if (msg.type === "hole_cards") {
+    ownHoleCards[selfId] = msg.cards;
+    renderMirror();
+  } else if (msg.type === "chat") {
+    chat?.addMessage({ sender: msg.sender, text: msg.text });
+  } else if (msg.type === "emoji") {
+    tableView?.floatEmojiOver(msg.playerId, msg.emoji);
+  } else if (msg.type === "disconnected") {
+    alert("与房主断开连接");
+    cleanupGame();
+    showScreen("lobby");
+  }
+}
+
+function renderWaitingPlayers() {
+  const container = root.getElementById("waitingPlayers");
+  container.textContent = "";
+  for (const p of waitingPlayers) {
+    const div = document.createElement("div");
+    div.className = "waiting-player";
+    div.textContent = p.name + (p.isHost ? " (房主)" : "");
+    container.appendChild(div);
+  }
+}
+
+function leaveRoom() {
+  if (channel && !isHost) channel.send({ type: "leave", playerId: selfId });
+  cleanupGame();
+  showScreen("lobby");
+}
+
+function startOnlineGame() {
+  if (!isHost) return;
+  const cfg = window._holdemOnlineConfig || {};
+  if (waitingPlayers.length < 2) {
+    alert("至少需要 2 位玩家才能开始");
+    return;
+  }
+  // 构造玩家（真人 + 可选 AI 补位；此处仅真人）
+  const players = waitingPlayers.map((p, i) => ({
+    id: p.id, name: p.name, stack: cfg.stack || 10000, isHuman: true,
+  }));
+  // 随机座位
+  shuffleInPlace(players);
+
+  game = new Game({
+    players,
+    smallBlind: cfg.blindsMode === "tourney" ? 25 : 50,
+    bigBlind: cfg.blindsMode === "tourney" ? 50 : 100,
+    blindsMode: cfg.blindsMode || "fixed",
+  });
+
+  humanPlayerIds = players.map((p) => p.id);
+  activeHumanIndex = 0;
+  ownHoleCards = {};
+  revealedHoles = {};
+
+  // 重新绑定消息处理器以支持 action
+  channel.onMessage((msg, from) => hostHandleRuntimeMessage(msg, from));
+
+  channel.send({
+    type: "start_game",
+    config: {
+      stack: cfg.stack,
+      blindsMode: cfg.blindsMode,
+      players: players.map((p) => ({ id: p.id, name: p.name })),
+    },
+  });
+
+  mountTableUI({ selfName: players.find((p) => p.id === selfId)?.name || "房主", hotseat: false });
+  showScreen("table");
+  game.startHand();
+  pumpEvents();
+}
+
+function hostHandleRuntimeMessage(msg, from) {
+  if (msg.type === "action") {
+    if (game && game.stage !== STAGE.GAME_OVER) {
+      const result = game.applyAction(msg.playerId, msg.action);
+      if (result?.error) {
+        // 忽略非法动作
+      }
+      pumpEvents();
+    }
+  } else if (msg.type === "chat") {
+    chat?.addMessage({ sender: msg.sender, text: msg.text });
+    channel.send({ type: "chat", sender: msg.sender, text: msg.text });
+  } else if (msg.type === "emoji") {
+    tableView?.floatEmojiOver(msg.playerId, msg.emoji);
+    channel.send(msg);
+  } else if (msg.type === "leave") {
+    // 离开处理（简化：标记 sittingOut）
+    const p = game?.players.find((x) => x.id === msg.playerId);
+    if (p) { p.sittingOut = true; p.folded = true; }
+  }
+}
+
+// ── UI 挂载 ──
+
+function mountTableUI({ selfName, hotseat }) {
+  tableView = new TableView(root);
+  privacy = new PrivacyShield(root);
+
+  controls = new Controls(root, (action) => {
+    onHumanAction(action);
+  });
+
+  chat = new Chat(root, {
+    selfName,
+    onSend: (text) => sendChat(text),
+    onEmoji: (emoji) => sendEmoji(emoji),
+  });
+}
+
+function onHumanAction(action) {
+  const actor = game ? game.players[game.actionIndex] : null;
+  if (!actor) return;
+
+  if (isOnlineMode() && !isHost) {
+    // 客户端发给房主
+    channel.send({ type: "action", playerId: selfId, action });
+    controls.hide();
+    return;
+  }
+
+  // 本地 / 房主
+  const pid = hotseatActiveId() || actor.id;
+  const result = game.applyAction(pid, action);
+  if (result?.error) return;
+  controls.hide();
+  pumpEvents();
+}
+
+function hotseatActiveId() {
+  if (currentMode !== "hotseat" || !game) return null;
+  const actor = game.players[game.actionIndex];
+  if (actor && actor.isHuman) return actor.id;
+  return null;
+}
+
+function sendChat(text) {
+  if (!text) return;
+  const selfName = getSelfName();
+  chat.addMessage({ sender: selfName, text });
+  if (channel) channel.send({ type: "chat", sender: selfName, text });
+}
+
+function sendEmoji(emoji) {
+  tableView?.floatEmojiOver(selfId, emoji);
+  if (channel) channel.send({ type: "emoji", sender: getSelfName(), playerId: selfId, emoji });
+}
+
+function getSelfName() {
+  if (game) {
+    const p = game.players.find((x) => x.id === selfId);
+    if (p) return p.name;
+  }
+  return root.getElementById("nameInput").value.trim() || "玩家";
+}
+
+function isOnlineMode() {
+  return currentMode === "multitab" || currentMode === "online";
+}
+
+// ── 事件循环（房主 / 本地） ──
+
+function pumpEvents() {
+  if (!game) return;
+  const events = game.drainEvents();
+  for (const ev of events) handleAuthoritativeEvent(ev);
+
+  // 联机广播状态 + 事件
+  if (isOnlineMode() && isHost && channel) {
+    channel.send({ type: "state", state: buildSnapshot() });
+    if (events.length > 0) channel.send({ type: "events", events: sanitizeEventsForClients(events) });
+    // 私密底牌单独发给各玩家
+    for (const ev of events) {
+      if (ev.type === "deal_hole") {
+        if (ev.playerId !== selfId) {
+          channel.send({ type: "hole_cards", cards: ev.cards }, ev.playerId);
+        } else {
+          ownHoleCards[selfId] = ev.cards;
+        }
+      }
+    }
+  }
+
+  // 事件已处理 → 渲染
+  renderAuthoritative();
+
+  // 处理 AI 决策（仅房主 / 本地）
+  scheduleAIIfNeeded();
+}
+
+function sanitizeEventsForClients(events) {
+  // 过滤掉底牌事件（只含卡号的除外——deal_hole 不能广播）
+  return events.filter((e) => e.type !== "deal_hole");
+}
+
+function buildSnapshot() {
+  const s = game.snapshot();
+  return s;
+}
+
+function handleAuthoritativeEvent(ev) {
+  if (ev.type === "hand_start") {
+    ownHoleCards = {};
+    revealedHoles = {};
+    tableView?.showDealerLog(`第 ${ev.handNumber} 手 · 盲注 ${ev.smallBlind}/${ev.bigBlind}`);
+  } else if (ev.type === "deal_hole") {
+    // 本地 / hotseat 下：真人玩家都记录自己的底牌
+    const p = game.players.find((x) => x.id === ev.playerId);
+    if (p?.isHuman) ownHoleCards[ev.playerId] = ev.cards;
+  } else if (ev.type === "stage") {
+    const stageCN = STAGE_NAME_CN[ev.stage];
+    tableView?.showDealerLog(`—— ${stageCN} ——`);
+  } else if (ev.type === "action") {
+    const p = game.players.find((x) => x.id === ev.playerId);
+    if (!p) return;
+    const desc = actionDescription(ev);
+    tableView?.showDealerLog(`${p.name} ${desc}`, 1800);
+  } else if (ev.type === "showdown") {
+    for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
+  } else if (ev.type === "award") {
+    pendingHandResult = { winners: ev.winners, reason: ev.winners[0]?.reason };
+    const winnerIds = ev.winners.map((w) => w.id);
+    tableView?.highlightWinners(winnerIds);
+  } else if (ev.type === "hand_over") {
+    showHandResult();
+  } else if (ev.type === "game_over") {
+    showGameOver(ev.winner);
+  }
+}
+
+function handleMirrorEvent(ev) {
+  // 客户端镜像：使用 latestSnapshot 已更新；此处只处理 UI 信息
+  if (ev.type === "hand_start") {
+    ownHoleCards = {};
+    revealedHoles = {};
+  } else if (ev.type === "stage") {
+    // nothing — latestSnapshot 已更新
+  } else if (ev.type === "action") {
+    const p = latestSnapshot?.players.find((x) => x.id === ev.playerId);
+    if (p) tableView?.showDealerLog(`${p.name} ${actionDescription(ev)}`, 1800);
+  } else if (ev.type === "showdown") {
+    for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
+  } else if (ev.type === "award") {
+    pendingHandResult = { winners: ev.winners, reason: ev.winners[0]?.reason };
+    tableView?.highlightWinners(ev.winners.map((w) => w.id));
+  } else if (ev.type === "hand_over") {
+    showHandResult();
+  } else if (ev.type === "game_over") {
+    showGameOver(ev.winner);
+  }
+}
+
+function actionDescription(ev) {
+  switch (ev.action) {
+    case "fold": return "弃牌";
+    case "check": return "过牌";
+    case "call": return `跟注 ${ev.amount || 0}`;
+    case "raise": return `加注至 ${ev.totalBet || ev.amount}`;
+    case "allin": return `全下 ${ev.amount}`;
+    default: return ev.action;
+  }
+}
+
+function renderAuthoritative() {
+  if (!game || !tableView) return;
+  const snap = game.snapshot();
+  // 注入视角用底牌
+  snap.ownHoleCards = ownHoleCards[currentPerspectiveId()] || null;
+  snap.revealedHoles = revealedHoles;
+  tableView.render(snap, currentPerspectiveId());
+
+  // 行动条
+  const idx = game.actionIndex;
+  if (idx < 0 || game.stage === STAGE.HAND_OVER || game.stage === STAGE.SHOWDOWN || game.stage === STAGE.GAME_OVER) {
+    controls?.hide();
+    return;
+  }
+
+  const actor = game.players[idx];
+  if (!actor) return;
+
+  // 只在真人玩家轮到时显示操作条
+  const isLocalTurn = shouldShowControlsForActor(actor);
+  if (!isLocalTurn) {
+    controls?.hide();
+    return;
+  }
+
+  showControlsForActor(actor);
+}
+
+function shouldShowControlsForActor(actor) {
+  if (!actor.isHuman) return false;
+  if (currentMode === "solo") return actor.id === selfId;
+  if (currentMode === "hotseat") return true; // 所有真人共用本机，统一显示
+  if (isOnlineMode()) return actor.id === selfId;
+  return false;
+}
+
+async function showControlsForActor(actor) {
+  const ctx = buildActionContextFromGame(actor);
+  const hole = ownHoleCards[actor.id] || [];
+
+  // hot-seat：切换玩家前先显示隐私屏
+  if (currentMode === "hotseat") {
+    const lastShown = controls._lastShownPid;
+    if (lastShown !== actor.id) {
+      controls.hide();
+      await privacy.ask(actor.name);
+      controls._lastShownPid = actor.id;
+    }
+  } else {
+    controls._lastShownPid = actor.id;
+  }
+
+  controls.show(ctx, hole);
+}
+
+function buildActionContextFromGame(p) {
+  const toCall = game.currentBet - p.currentBet;
+  const minRaise = Math.max(game.currentBet + game.lastRaise, game.currentBet + game.bigBlind);
+  const maxRaise = p.stack + p.currentBet;
+  const legalActions = ["fold"];
+  if (toCall === 0) legalActions.push("check");
+  if (toCall > 0 && p.stack > 0) legalActions.push("call");
+  if (p.stack > toCall) legalActions.push("raise");
+  if (p.stack > 0) legalActions.push("allin");
+  return {
+    toCall, minRaise, maxRaise,
+    currentBet: game.currentBet,
+    pot: game.pot,
+    bigBlind: game.bigBlind,
+    playerCurrentBet: p.currentBet,
+    legalActions,
+  };
+}
+
+function renderMirror() {
+  // 客户端镜像
+  if (!latestSnapshot || !tableView) return;
+  latestSnapshot.ownHoleCards = ownHoleCards[selfId] || null;
+  latestSnapshot.revealedHoles = revealedHoles;
+  tableView.render(latestSnapshot, selfId);
+
+  // 如果轮到自己 → 显示操作条
+  const actIdx = latestSnapshot.actionIndex;
+  const actor = actIdx >= 0 ? latestSnapshot.players[actIdx] : null;
+  if (!actor || actor.id !== selfId || latestSnapshot.stage === STAGE.HAND_OVER || latestSnapshot.stage === STAGE.SHOWDOWN) {
+    controls?.hide();
+    return;
+  }
+  const p = actor;
+  const toCall = latestSnapshot.currentBet - p.currentBet;
+  const minRaise = Math.max(latestSnapshot.currentBet + latestSnapshot.lastRaise, latestSnapshot.currentBet + latestSnapshot.bigBlind);
+  const maxRaise = p.stack + p.currentBet;
+  const legalActions = ["fold"];
+  if (toCall === 0) legalActions.push("check");
+  if (toCall > 0 && p.stack > 0) legalActions.push("call");
+  if (p.stack > toCall) legalActions.push("raise");
+  if (p.stack > 0) legalActions.push("allin");
+  controls.show({
+    toCall, minRaise, maxRaise,
+    currentBet: latestSnapshot.currentBet,
+    pot: latestSnapshot.pot,
+    bigBlind: latestSnapshot.bigBlind,
+    playerCurrentBet: p.currentBet,
+    legalActions,
+  }, ownHoleCards[selfId] || []);
+}
+
+function currentPerspectiveId() {
+  // hot-seat: 当前行动玩家视角；否则固定为 selfId
+  if (currentMode === "hotseat" && game) {
+    const idx = game.actionIndex;
+    if (idx >= 0) {
+      const actor = game.players[idx];
+      if (actor?.isHuman) return actor.id;
+    }
+  }
+  return selfId;
+}
+
+// ── AI 调度 ──
+
+function scheduleAIIfNeeded() {
+  if (!game || !isHost) return;
+  if (aiScheduleTimer) return;
+  const idx = game.actionIndex;
+  if (idx < 0) return;
+  const actor = game.players[idx];
+  if (!actor || actor.isHuman) return;
+  if (game.stage === STAGE.HAND_OVER || game.stage === STAGE.SHOWDOWN || game.stage === STAGE.GAME_OVER) return;
+
+  const delay = 900 + Math.random() * 600;
+  aiScheduleTimer = setTimeout(() => {
+    aiScheduleTimer = null;
+    if (!game) return;
+    const curIdx = game.actionIndex;
+    if (curIdx < 0) return;
+    const curActor = game.players[curIdx];
+    if (!curActor || curActor.isHuman) return;
+
+    const ctx = buildActionContextFromGame(curActor);
+    const action = decide(game, curActor, ctx);
+    const emoji = decideEmoji(action, 0.5);
+    if (emoji) {
+      tableView?.floatEmojiOver(curActor.id, emoji);
+      if (channel) channel.send({ type: "emoji", sender: curActor.name, playerId: curActor.id, emoji });
+    }
+    const result = game.applyAction(curActor.id, action);
+    if (result?.error) {
+      // 退化为 check / fold
+      const fallback = ctx.legalActions.includes("check") ? { type: "check" } : { type: "fold" };
+      game.applyAction(curActor.id, fallback);
+    }
+    pumpEvents();
+  }, delay);
+}
+
+// ── 结算 ──
+
+function showHandResult() {
+  if (!pendingHandResult) return;
+
+  const modal = root.getElementById("handResult");
+  const body = root.getElementById("handResultBody");
+  const title = root.getElementById("handResultTitle");
+  body.textContent = "";
+
+  title.textContent = pendingHandResult.reason === "uncontested" ? "对手弃牌，本手结束" : "摊牌结算";
+
+  for (const w of pendingHandResult.winners) {
+    const src = game?.players || latestSnapshot?.players || [];
+    const p = src.find((x) => x.id === w.id);
+    const row = document.createElement("div");
+    row.className = "result-row";
+
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "result-name";
+    nameDiv.textContent = (p?.name || w.id) + " 赢得 " + (w.amount || 0).toLocaleString();
+    row.appendChild(nameDiv);
+
+    if (w.rank) {
+      const rankDiv = document.createElement("div");
+      rankDiv.className = "result-rank";
+      rankDiv.textContent = w.rank;
+      row.appendChild(rankDiv);
+    }
+    if (w.cards && w.cards.length) {
+      const cards = document.createElement("div");
+      cards.className = "result-cards";
+      for (const c of w.cards) cards.appendChild(renderCardEl(c, { highlight: true }));
+      row.appendChild(cards);
+    }
+    body.appendChild(row);
+  }
+
+  modal.style.display = "flex";
+  pendingHandResult = null;
+
+  // 自动推进（本地/房主）
+  if (isHost && game) {
+    setTimeout(() => {
+      const btn = root.getElementById("nextHandBtn");
+      if (btn) btn.focus();
+    }, 100);
+  }
+}
+
+function startNextHand() {
+  if (!game) return;
+  if (game.stage === STAGE.GAME_OVER) return;
+  // 至少 2 位未离桌玩家才继续
+  const alive = game.players.filter((p) => p.stack > 0);
+  if (alive.length < 2) {
+    showGameOver(alive[0]?.id || null);
+    return;
+  }
+  root.getElementById("handResult").style.display = "none";
+  game.startHand();
+  pumpEvents();
+}
+
+function showGameOver(winnerId) {
+  const src = game?.players || latestSnapshot?.players || [];
+  const winner = src.find((x) => x.id === winnerId);
+  const body = root.getElementById("gameOverBody");
+  body.textContent = "";
+
+  const summary = document.createElement("div");
+  summary.className = "game-over-summary";
+  if (winner) {
+    summary.textContent = `🏆 ${winner.name} 赢得最终胜利！`;
+  } else {
+    summary.textContent = "牌局结束";
+  }
+  body.appendChild(summary);
+
+  // 最终排名
+  const ranking = src.slice().sort((a, b) => b.stack - a.stack);
+  const list = document.createElement("div");
+  list.className = "game-over-ranks";
+  ranking.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.textContent = `#${i + 1}  ${p.name}  ${p.stack.toLocaleString()}`;
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+
+  // 奖励金币（最多 100 coin / 人）
+  if (winner && humanPlayerIds.includes(winner.id) && window.ArcadeHub) {
+    window.ArcadeHub.addCoins(100);
+  } else if (window.ArcadeHub) {
+    window.ArcadeHub.addCoins(15);
+  }
+
+  root.getElementById("gameOver").style.display = "flex";
+  root.getElementById("handResult").style.display = "none";
+}
+
+// ── 清理 ──
+
+function cleanupGame() {
+  if (aiScheduleTimer) { clearTimeout(aiScheduleTimer); aiScheduleTimer = null; }
+  if (channel) { try { channel.close(); } catch (_) {} }
+  channel = null;
+  game = null;
+  tableView = null;
+  controls = null;
+  chat = null;
+  privacy = null;
+  latestSnapshot = null;
+  ownHoleCards = {};
+  revealedHoles = {};
+  waitingPlayers = [];
+  pendingHandResult = null;
+  root.getElementById("handResult").style.display = "none";
+  root.getElementById("gameOver").style.display = "none";
+  root.getElementById("actionBar").style.display = "none";
+}
+
+// ── 工具 ──
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ── 入口 ──
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}

@@ -806,6 +806,43 @@ html, body {
 .showdown-row .cards-row { display: flex; gap: 2px; }
 .showdown-row .card { width: 24px; height: 34px; font-size: 0.55rem; }
 
+.result-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(245, 197, 24, 0.08);
+  border: 1px solid rgba(245, 197, 24, 0.25);
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+}
+.result-name { font-weight: 700; color: var(--text-main, #f0f0f0); flex: 1 0 auto; }
+.result-rank { color: var(--gold); font-size: 0.85rem; font-weight: 600; flex: 0 0 auto; }
+.result-cards {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+.result-cards .card { width: 32px; height: 44px; font-size: 0.65rem; }
+.game-over-summary {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--gold);
+  margin-bottom: 1rem;
+}
+.game-over-ranks { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; }
+.rank-row {
+  padding: 0.4rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9rem;
+}
+
 /* ── 响应式 ─────────────────────────── */
 
 @media (max-width: 720px) {
