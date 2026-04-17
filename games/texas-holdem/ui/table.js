@@ -33,7 +33,39 @@ export function renderCardEl(code, opts = {}) {
   const suit = code[1];
   if (suit === "h" || suit === "d") el.classList.add("red");
   const rankLabel = rank === "T" ? "10" : rank;
-  el.innerHTML = `<div class="rank">${rankLabel}</div><div class="suit">${SUIT_SYMBOL[suit]}</div>`;
+  const isFace = rank === "J" || rank === "Q" || rank === "K" || rank === "A";
+  if (isFace) el.classList.add("face", "face-" + rank.toLowerCase());
+
+  // 左上角：点数 + 小花色（stacked）
+  const corner = document.createElement("div");
+  corner.className = "card-corner";
+  const cornerRank = document.createElement("div");
+  cornerRank.className = "corner-rank";
+  cornerRank.textContent = rankLabel;
+  const cornerSuit = document.createElement("div");
+  cornerSuit.className = "corner-suit";
+  cornerSuit.textContent = SUIT_SYMBOL[suit];
+  corner.appendChild(cornerRank);
+  corner.appendChild(cornerSuit);
+  el.appendChild(corner);
+
+  // 主体：数字牌显示大花色；J/Q/K/A 显示花体字母 + 小花色
+  const main = document.createElement("div");
+  main.className = "card-main";
+  if (isFace) {
+    // 脸牌：花体字母为主视觉（花色由左上角标识）
+    const faceLetter = document.createElement("div");
+    faceLetter.className = "face-letter";
+    faceLetter.textContent = rankLabel;
+    main.appendChild(faceLetter);
+  } else {
+    const mainSuit = document.createElement("div");
+    mainSuit.className = "main-suit";
+    mainSuit.textContent = SUIT_SYMBOL[suit];
+    main.appendChild(mainSuit);
+  }
+  el.appendChild(main);
+
   if (opts.deal) el.classList.add("deal-in");
   if (opts.flip) el.classList.add("flip");
   if (opts.highlight) el.classList.add("highlight");
@@ -53,6 +85,18 @@ export class TableView {
 
   render(state, perspective) {
     // perspective: 本地玩家 id（视角）
+    // 新一手开局时重置公共牌缓存并清空 DOM，避免上手的牌残留
+    if (this._lastHandNumber !== state.handNumber) {
+      this._communityCache = [];
+      this._lastHandNumber = state.handNumber;
+      this.communityEl.replaceChildren();
+      for (let i = 0; i < 5; i++) {
+        const ph = document.createElement("div");
+        ph.className = "card back";
+        ph.style.opacity = "0.15";
+        this.communityEl.appendChild(ph);
+      }
+    }
     const players = state.players;
     const positions = this._layoutPositions(players, perspective);
 
@@ -154,23 +198,149 @@ export class TableView {
       this.seatElements.set(p.id, seat);
     }
 
-    // 公共牌
-    this.communityEl.innerHTML = "";
-    for (const c of state.community) {
-      this.communityEl.appendChild(renderCardEl(c, { deal: true }));
-    }
-    // 占位符
-    for (let i = state.community.length; i < 5; i++) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "card back";
-      placeholder.style.opacity = "0.15";
-      this.communityEl.appendChild(placeholder);
+    // 公共牌（diff 渲染，避免每次下注都重建导致闪烁）
+    if (!this._communityCache) this._communityCache = [];
+    const needRebuild =
+      state.community.length !== this._communityCache.length ||
+      state.community.some((c, i) => c !== this._communityCache[i]);
+
+    if (needRebuild) {
+      const oldLen = this._communityCache.length;
+      this.communityEl.replaceChildren();
+      for (let i = 0; i < state.community.length; i++) {
+        // 只给「本次新增」的牌添加 deal-in 动画（带 stagger）
+        const isNew = i >= oldLen;
+        const el = renderCardEl(state.community[i], { deal: isNew });
+        if (isNew) {
+          const delay = (i - oldLen) * 140;
+          el.style.animationDelay = delay + "ms";
+          el.style.opacity = "0";
+          // 动画开始前保持不可见，之后由 deal-in 动画接管
+          el.style.animationFillMode = "forwards";
+        }
+        this.communityEl.appendChild(el);
+      }
+      for (let i = state.community.length; i < 5; i++) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "card back";
+        placeholder.style.opacity = "0.15";
+        this.communityEl.appendChild(placeholder);
+      }
+      this._communityCache = state.community.slice();
     }
 
-    // 底池
-    this.potEl.textContent = state.pot.toLocaleString();
+    // 底池（动画计数）
+    this._animatePotTo(state.pot);
     // 阶段
     this.stageEl.textContent = STAGE_NAME_CN[state.stage] || state.stage;
+  }
+
+  _animatePotTo(value) {
+    const el = this.potEl;
+    const from = parseInt(String(el.textContent).replace(/,/g, ""), 10) || 0;
+    if (from === value) {
+      el.textContent = value.toLocaleString();
+      return;
+    }
+    cancelAnimationFrame(this._potRaf);
+    const start = performance.now();
+    const dur = 450;
+    const step = (now) => {
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const cur = Math.round(from + (value - from) * eased);
+      el.textContent = cur.toLocaleString();
+      el.classList.toggle("pot-growing", value > from);
+      if (p < 1) this._potRaf = requestAnimationFrame(step);
+      else {
+        setTimeout(() => el.classList.remove("pot-growing"), 200);
+      }
+    };
+    this._potRaf = requestAnimationFrame(step);
+  }
+
+  showStageBanner(stageCN) {
+    if (this._stageBannerEl) this._stageBannerEl.remove();
+    const banner = document.createElement("div");
+    banner.className = "stage-banner";
+    banner.textContent = stageCN;
+    document.body.appendChild(banner);
+    this._stageBannerEl = banner;
+    // 触发动画
+    requestAnimationFrame(() => banner.classList.add("show"));
+    setTimeout(() => {
+      banner.classList.remove("show");
+      banner.classList.add("hide");
+      setTimeout(() => {
+        banner.remove();
+        if (this._stageBannerEl === banner) this._stageBannerEl = null;
+      }, 450);
+    }, 1200);
+  }
+
+  floatActionLabel(playerId, text, kind) {
+    const seat = this.seatElements.get(playerId);
+    if (!seat) return;
+    const rect = seat.getBoundingClientRect();
+    const el = document.createElement("div");
+    el.className = "action-float " + (kind ? "kind-" + kind : "");
+    el.textContent = text;
+    el.style.left = rect.left + rect.width / 2 + "px";
+    el.style.top = rect.top + 16 + "px";
+    document.getElementById("floatingLayer").appendChild(el);
+    setTimeout(() => el.remove(), 1400);
+  }
+
+  burstConfetti(playerId) {
+    const seat = this.seatElements.get(playerId);
+    if (!seat) return;
+    const rect = seat.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const layer = document.getElementById("floatingLayer");
+    const colors = ["#f5c518", "#fff5a0", "#ef4444", "#22c55e", "#60a5fa", "#ec4899"];
+    for (let i = 0; i < 28; i++) {
+      const p = document.createElement("span");
+      p.className = "confetti";
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 70 + Math.random() * 160;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist - 50;
+      p.style.left = cx + "px";
+      p.style.top = cy + "px";
+      p.style.background = colors[i % colors.length];
+      p.style.setProperty("--dx", dx + "px");
+      p.style.setProperty("--dy", dy + "px");
+      p.style.setProperty("--rot", Math.random() * 720 + "deg");
+      layer.appendChild(p);
+      setTimeout(() => p.remove(), 1300);
+    }
+  }
+
+  flyChipsToPot(playerId, amount) {
+    const seat = this.seatElements.get(playerId);
+    if (!seat) return;
+    const seatRect = seat.getBoundingClientRect();
+    const potRect = this.potEl.getBoundingClientRect();
+    const layer = document.getElementById("floatingLayer");
+    const startX = seatRect.left + seatRect.width / 2;
+    const startY = seatRect.top + seatRect.height / 2;
+    const endX = potRect.left + potRect.width / 2;
+    const endY = potRect.top + potRect.height / 2;
+
+    // 根据金额生成 1-4 个筹码
+    const n = Math.min(4, Math.max(1, Math.floor(Math.log10(Math.max(1, amount)))));
+    for (let i = 0; i < n; i++) {
+      const chip = document.createElement("div");
+      chip.className = "flying-chip";
+      chip.style.left = startX + "px";
+      chip.style.top = startY + "px";
+      chip.style.setProperty("--dx", endX - startX + "px");
+      chip.style.setProperty("--dy", endY - startY + "px");
+      chip.style.animationDelay = i * 80 + "ms";
+      layer.appendChild(chip);
+      setTimeout(() => chip.remove(), 800 + i * 80);
+    }
   }
 
   _nextNonSittingOut(players, from) {
@@ -222,6 +392,19 @@ export class TableView {
       const seat = this.seatElements.get(id);
       if (seat) seat.classList.add("winner");
     }
+  }
+
+  // 清空公共牌（结算后重置牌桌）
+  clearBoard() {
+    this._communityCache = [];
+    this.communityEl.replaceChildren();
+    for (let i = 0; i < 5; i++) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "card back";
+      placeholder.style.opacity = "0.15";
+      this.communityEl.appendChild(placeholder);
+    }
+    this._animatePotTo(0);
   }
 
   floatEmojiOver(playerId, emoji) {

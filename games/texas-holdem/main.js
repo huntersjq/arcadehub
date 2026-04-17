@@ -45,6 +45,9 @@ let latestSnapshot = null;          // 客户端镜像用
 let pendingHandResult = null;       // 结算信息缓存
 let soundOn = true;
 let waitingPlayers = [];            // 等待房玩家列表（联机）
+let handStartStacks = {};           // 本手开始时各玩家筹码快照（用于结算展示盈亏）
+let handStartHoles = {};            // 本手各玩家底牌（镜像客户端和结算用）
+let lastCommunityCards = [];        // 本手最终公共牌（结算用）
 
 // ── 屏幕切换 ──
 
@@ -524,26 +527,60 @@ function handleAuthoritativeEvent(ev) {
   if (ev.type === "hand_start") {
     ownHoleCards = {};
     revealedHoles = {};
+    // 记录开局筹码快照 + 清空底牌/公共牌缓存
+    handStartStacks = {};
+    handStartHoles = {};
+    lastCommunityCards = [];
+    if (game) {
+      for (const p of game.players) handStartStacks[p.id] = p.stack;
+    }
+    pendingHandResult = null;
     tableView?.showDealerLog(`第 ${ev.handNumber} 手 · 盲注 ${ev.smallBlind}/${ev.bigBlind}`);
   } else if (ev.type === "deal_hole") {
     // 本地 / hotseat 下：真人玩家都记录自己的底牌
     const p = game.players.find((x) => x.id === ev.playerId);
     if (p?.isHuman) ownHoleCards[ev.playerId] = ev.cards;
+    // 本地/房主：全量保存以便结算展示
+    handStartHoles[ev.playerId] = ev.cards.slice();
   } else if (ev.type === "stage") {
     const stageCN = STAGE_NAME_CN[ev.stage];
     tableView?.showDealerLog(`—— ${stageCN} ——`);
+    // 翻牌/转牌/河牌 时显示大横幅
+    if (["flop", "turn", "river"].includes(ev.stage)) {
+      tableView?.showStageBanner(stageCN);
+    }
+    if (ev.community) lastCommunityCards = ev.community.slice();
   } else if (ev.type === "action") {
     const p = game.players.find((x) => x.id === ev.playerId);
     if (!p) return;
     const desc = actionDescription(ev);
     tableView?.showDealerLog(`${p.name} ${desc}`, 1800);
+    // 飘字 + 飞筹码
+    if (tableView) {
+      tableView.floatActionLabel(p.id, shortActionLabel(ev), ev.action);
+      if (ev.amount && ev.amount > 0 && ev.action !== "fold" && ev.action !== "check") {
+        tableView.flyChipsToPot(p.id, ev.amount);
+      }
+    }
   } else if (ev.type === "showdown") {
+    lastCommunityCards = ev.community.slice();
     for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
+    pendingHandResult = pendingHandResult || {};
+    pendingHandResult.showdownHands = ev.hands;
+    pendingHandResult.community = ev.community.slice();
   } else if (ev.type === "award") {
-    pendingHandResult = { winners: ev.winners, reason: ev.winners[0]?.reason };
+    pendingHandResult = pendingHandResult || {};
+    pendingHandResult.winners = ev.winners;
+    pendingHandResult.reason = ev.winners[0]?.reason;
     const winnerIds = ev.winners.map((w) => w.id);
     tableView?.highlightWinners(winnerIds);
+    // 赢家彩带 + 飞向赢家的筹码
+    for (const w of ev.winners) {
+      tableView?.burstConfetti(w.id);
+    }
   } else if (ev.type === "hand_over") {
+    // 牌桌清空公共牌，等待下一手
+    tableView?.clearBoard();
     showHandResult();
   } else if (ev.type === "game_over") {
     showGameOver(ev.winner);
@@ -555,17 +592,39 @@ function handleMirrorEvent(ev) {
   if (ev.type === "hand_start") {
     ownHoleCards = {};
     revealedHoles = {};
+    handStartStacks = {};
+    lastCommunityCards = [];
+    if (latestSnapshot) {
+      for (const p of latestSnapshot.players) handStartStacks[p.id] = p.stack;
+    }
+    pendingHandResult = null;
   } else if (ev.type === "stage") {
-    // nothing — latestSnapshot 已更新
+    if (ev.community) lastCommunityCards = ev.community.slice();
+    const stageCN = STAGE_NAME_CN[ev.stage];
+    if (["flop", "turn", "river"].includes(ev.stage)) tableView?.showStageBanner(stageCN);
   } else if (ev.type === "action") {
     const p = latestSnapshot?.players.find((x) => x.id === ev.playerId);
-    if (p) tableView?.showDealerLog(`${p.name} ${actionDescription(ev)}`, 1800);
+    if (p) {
+      tableView?.showDealerLog(`${p.name} ${actionDescription(ev)}`, 1800);
+      tableView?.floatActionLabel(p.id, shortActionLabel(ev), ev.action);
+      if (ev.amount && ev.amount > 0 && ev.action !== "fold" && ev.action !== "check") {
+        tableView?.flyChipsToPot(p.id, ev.amount);
+      }
+    }
   } else if (ev.type === "showdown") {
+    lastCommunityCards = ev.community.slice();
     for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
+    pendingHandResult = pendingHandResult || {};
+    pendingHandResult.showdownHands = ev.hands;
+    pendingHandResult.community = ev.community.slice();
   } else if (ev.type === "award") {
-    pendingHandResult = { winners: ev.winners, reason: ev.winners[0]?.reason };
+    pendingHandResult = pendingHandResult || {};
+    pendingHandResult.winners = ev.winners;
+    pendingHandResult.reason = ev.winners[0]?.reason;
     tableView?.highlightWinners(ev.winners.map((w) => w.id));
+    for (const w of ev.winners) tableView?.burstConfetti(w.id);
   } else if (ev.type === "hand_over") {
+    tableView?.clearBoard();
     showHandResult();
   } else if (ev.type === "game_over") {
     showGameOver(ev.winner);
@@ -579,6 +638,18 @@ function actionDescription(ev) {
     case "call": return `跟注 ${ev.amount || 0}`;
     case "raise": return `加注至 ${ev.totalBet || ev.amount}`;
     case "allin": return `全下 ${ev.amount}`;
+    default: return ev.action;
+  }
+}
+
+// 飘字用的短标签（配合飞筹码效果）
+function shortActionLabel(ev) {
+  switch (ev.action) {
+    case "fold": return "弃牌";
+    case "check": return "过牌";
+    case "call": return `跟注 +${(ev.amount || 0).toLocaleString()}`;
+    case "raise": return `加注 +${(ev.amount || 0).toLocaleString()}`;
+    case "allin": return `全下 +${(ev.amount || 0).toLocaleString()}`;
     default: return ev.action;
   }
 }
@@ -747,46 +818,141 @@ function showHandResult() {
   const modal = root.getElementById("handResult");
   const body = root.getElementById("handResultBody");
   const title = root.getElementById("handResultTitle");
-  body.textContent = "";
+  body.replaceChildren();
 
-  title.textContent = pendingHandResult.reason === "uncontested" ? "对手弃牌，本手结束" : "摊牌结算";
+  const reason = pendingHandResult.reason;
+  title.textContent = reason === "uncontested" ? "对手弃牌，本手结束" : "摊牌结算";
 
-  for (const w of pendingHandResult.winners) {
-    const src = game?.players || latestSnapshot?.players || [];
-    const p = src.find((x) => x.id === w.id);
+  const allPlayers = game?.players || latestSnapshot?.players || [];
+  const winners = pendingHandResult.winners || [];
+  const winnerMap = new Map();
+  for (const w of winners) {
+    // 合并同一个玩家多个池的赢额
+    const prev = winnerMap.get(w.id) || { amount: 0, rank: null, cards: null };
+    prev.amount += w.amount || 0;
+    if (!prev.rank && w.rank) prev.rank = w.rank;
+    if (!prev.cards && w.cards) prev.cards = w.cards;
+    winnerMap.set(w.id, prev);
+  }
+
+  const showdownHands = pendingHandResult.showdownHands || [];
+  const handMap = new Map();
+  for (const h of showdownHands) handMap.set(h.id, h);
+
+  // 公共牌展示（摊牌场景）
+  if (lastCommunityCards.length > 0 && reason !== "uncontested") {
+    const boardWrap = document.createElement("div");
+    boardWrap.className = "result-board";
+    const boardLabel = document.createElement("span");
+    boardLabel.className = "result-board-label";
+    boardLabel.textContent = "公共牌";
+    boardWrap.appendChild(boardLabel);
+    const boardCards = document.createElement("div");
+    boardCards.className = "result-board-cards";
+    for (const c of lastCommunityCards) boardCards.appendChild(renderCardEl(c));
+    boardWrap.appendChild(boardCards);
+    body.appendChild(boardWrap);
+  }
+
+  // 为每位参与玩家（未离桌）渲染一行
+  const playersToShow = allPlayers.filter((p) => !p.sittingOut);
+  // 按：赢家优先、弃牌者靠后排序
+  playersToShow.sort((a, b) => {
+    const aWin = winnerMap.has(a.id) ? 1 : 0;
+    const bWin = winnerMap.has(b.id) ? 1 : 0;
+    if (aWin !== bWin) return bWin - aWin;
+    const aFold = a.folded ? 1 : 0;
+    const bFold = b.folded ? 1 : 0;
+    return aFold - bFold;
+  });
+
+  for (const p of playersToShow) {
+    const startStack = handStartStacks[p.id] ?? p.stack;
+    const delta = p.stack - startStack;
+    const win = winnerMap.get(p.id);
+    const hand = handMap.get(p.id);
+    const isWinner = !!win;
+
     const row = document.createElement("div");
-    row.className = "result-row";
+    row.className = "result-row" + (isWinner ? " winner" : "") + (p.folded ? " folded" : "");
+
+    // 玩家信息列
+    const info = document.createElement("div");
+    info.className = "result-info";
 
     const nameDiv = document.createElement("div");
     nameDiv.className = "result-name";
-    nameDiv.textContent = (p?.name || w.id) + " 赢得 " + (w.amount || 0).toLocaleString();
-    row.appendChild(nameDiv);
+    nameDiv.textContent = p.name;
+    info.appendChild(nameDiv);
 
-    if (w.rank) {
-      const rankDiv = document.createElement("div");
-      rankDiv.className = "result-rank";
-      rankDiv.textContent = w.rank;
-      row.appendChild(rankDiv);
+    const rankDiv = document.createElement("div");
+    rankDiv.className = "result-rank";
+    if (p.folded) rankDiv.textContent = "弃牌";
+    else if (hand?.name) rankDiv.textContent = hand.name;
+    else if (win?.rank) rankDiv.textContent = win.rank;
+    else rankDiv.textContent = "—";
+    info.appendChild(rankDiv);
+
+    const deltaDiv = document.createElement("div");
+    deltaDiv.className = "result-delta " + (delta > 0 ? "gain" : delta < 0 ? "loss" : "flat");
+    if (delta > 0) deltaDiv.textContent = "+" + delta.toLocaleString();
+    else if (delta < 0) deltaDiv.textContent = delta.toLocaleString(); // already has minus
+    else deltaDiv.textContent = "±0";
+    info.appendChild(deltaDiv);
+
+    row.appendChild(info);
+
+    // 手牌列：底牌 + 最佳 5 张（摊牌场景下显示；仅显示底牌时不高亮）
+    const cardsWrap = document.createElement("div");
+    cardsWrap.className = "result-cards-wrap";
+
+    // 底牌
+    const holeCards = p.folded
+      ? (hand?.holeCards || handStartHoles[p.id])
+      : (hand?.holeCards || revealedHoles[p.id] || ownHoleCards[p.id] || handStartHoles[p.id] || []);
+
+    const bestSet = new Set((hand?.cards || win?.cards || []));
+
+    const holeGroup = document.createElement("div");
+    holeGroup.className = "result-holes";
+    if (holeCards && holeCards.length > 0) {
+      for (const c of holeCards) {
+        holeGroup.appendChild(renderCardEl(c, { highlight: bestSet.has(c) }));
+      }
+    } else {
+      // 未知底牌（比如房主对客户端只传了 totalBet）
+      for (let i = 0; i < 2; i++) holeGroup.appendChild(renderCardEl(null, { back: true }));
     }
-    if (w.cards && w.cards.length) {
-      const cards = document.createElement("div");
-      cards.className = "result-cards";
-      for (const c of w.cards) cards.appendChild(renderCardEl(c, { highlight: true }));
-      row.appendChild(cards);
+    cardsWrap.appendChild(holeGroup);
+
+    // 最佳 5 张（仅摊牌时显示；未摊牌者只显示底牌）
+    if (hand?.cards && !p.folded) {
+      const sep = document.createElement("span");
+      sep.className = "result-sep";
+      sep.textContent = "→";
+      cardsWrap.appendChild(sep);
+
+      const bestGroup = document.createElement("div");
+      bestGroup.className = "result-best";
+      for (const c of hand.cards) bestGroup.appendChild(renderCardEl(c, { highlight: true }));
+      cardsWrap.appendChild(bestGroup);
     }
+
+    row.appendChild(cardsWrap);
     body.appendChild(row);
   }
 
   modal.style.display = "flex";
-  pendingHandResult = null;
 
-  // 自动推进（本地/房主）
+  // 自动聚焦「下一手」按钮（本地/房主）
   if (isHost && game) {
     setTimeout(() => {
       const btn = root.getElementById("nextHandBtn");
       if (btn) btn.focus();
     }, 100);
   }
+
+  // 注意：此处不清 pendingHandResult，留给下一次 hand_start 清理
 }
 
 function startNextHand() {
