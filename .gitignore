@@ -16,3 +16,7 @@ yarn-error.log*
 .gemini/
 .playwright-mcp/
 .claude/
+
+# Wrangler (Cloudflare Workers) local state
+.wrangler/
+scripts/.wrangler/

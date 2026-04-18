@@ -10,7 +10,4 @@
 //   2) 把下面的 URL 换成 wrangler 输出的地址
 //   3) git commit && git push → Pages 自动发布
 
-export const DEFAULT_RELAY_URL = "";
-
-// 示例：
-// export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.huntersjq.workers.dev/lan";
+export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.huntersg.workers.dev/lan";
