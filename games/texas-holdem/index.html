@@ -19,7 +19,7 @@
             <button class="lobby-tab active" data-mode="solo">单人练习</button>
             <button class="lobby-tab" data-mode="hotseat">本地多人</button>
             <button class="lobby-tab" data-mode="multitab">多窗口联机</button>
-            <button class="lobby-tab" data-mode="lan">局域网联机</button>
+            <button class="lobby-tab" data-mode="lan">LAN / 中继</button>
             <button class="lobby-tab" data-mode="online">跨设备联机</button>
           </div>
 
@@ -100,9 +100,15 @@
                 <small>基于 WebRTC P2P 连接（PeerJS 公共信令）。房主创建后得到 6 位房间码，分享给朋友加入。<br>
                 <b>需要外网。</b></small>
               </div>
+              <div class="field" id="relayUrlField" style="display:none">
+                <label>中继地址（留空则用同源 <code>/lan</code>）</label>
+                <input type="text" id="relayUrl" placeholder="wss://arcadehub-relay.YOURNAME.workers.dev/lan" />
+              </div>
               <div class="field online-hint" id="onlineHintLan" style="display:none">
-                <small>无需外网，走同 LAN 的 WebSocket 中继。<br>
-                需先启动：<code>bun scripts/lan-server.js 8765</code>，两台电脑同时访问同一个 LAN 地址即可。</small>
+                <small>
+                  <b>本地 LAN 模式：</b>留空，先跑 <code>bun scripts/lan-server.js 8765</code>，两台电脑访问同一 LAN 地址。<br>
+                  <b>公网中继模式：</b>填已部署的 Cloudflare Workers 地址（见 <code>DEPLOY.md</code>）。无需外网 WebRTC。
+                </small>
               </div>
             </div>
           </div>

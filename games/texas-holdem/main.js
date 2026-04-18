@@ -72,6 +72,11 @@ function init() {
   const savedName = localStorage.getItem("holdem_name");
   nameInput.value = savedName || randomName();
 
+  // 中继地址回填（LAN / 公网中继模式）
+  const relayInput = root.getElementById("relayUrl");
+  const savedRelay = localStorage.getItem("holdem_relay_url");
+  if (relayInput && savedRelay) relayInput.value = savedRelay;
+
   sfx = new SoundFx();
   soundOn = sfx.isEnabled();
 
@@ -128,6 +133,7 @@ function updateLobbyFields() {
   const onlineFields = root.getElementById("onlineFields");
   const hintPeer = root.getElementById("onlineHintPeer");
   const hintLan = root.getElementById("onlineHintLan");
+  const relayField = root.getElementById("relayUrlField");
 
   hotseatFields.style.display = currentMode === "hotseat" ? "" : "none";
   const isOnlineish = currentMode === "multitab" || currentMode === "online" || currentMode === "lan";
@@ -136,6 +142,7 @@ function updateLobbyFields() {
 
   if (hintPeer) hintPeer.style.display = currentMode === "online" ? "" : "none";
   if (hintLan)  hintLan.style.display  = currentMode === "lan" ? "" : "none";
+  if (relayField) relayField.style.display = currentMode === "lan" ? "" : "none";
 }
 
 function bindTableUIEvents() {
@@ -246,7 +253,15 @@ async function startOnlineFlow(name, stack, blindsMode) {
   isHost = !roomCode;
   const actualRoomCode = roomCode || genRoomCode();
 
-  channel = new ChannelCtor({ roomCode: actualRoomCode, isHost, name });
+  // LAN / 公网中继模式：记住用户输入的中继地址
+  let relayUrl = null;
+  if (currentMode === "lan") {
+    relayUrl = root.getElementById("relayUrl")?.value.trim() || null;
+    if (relayUrl) localStorage.setItem("holdem_relay_url", relayUrl);
+    else localStorage.removeItem("holdem_relay_url");
+  }
+
+  channel = new ChannelCtor({ roomCode: actualRoomCode, isHost, name, relayUrl });
 
   try {
     await channel.open();

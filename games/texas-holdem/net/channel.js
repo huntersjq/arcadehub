@@ -185,25 +185,41 @@ export class PeerChannel {
   }
 }
 
-// 基于 WebSocket 中继的 LAN 实现
-// 服务器：scripts/lan-server.js（Bun）
-// 连接地址：同源的 /lan（ws:// 或 wss://）
+// 基于 WebSocket 中继的实现
+// 服务器选项：
+//   A) 本地 LAN：scripts/lan-server.js（Bun），同源 /lan
+//   B) 公网：scripts/relay-worker.js（Cloudflare Workers + Durable Objects）
+//      通过构造参数 relayUrl 指定（例如 wss://arcadehub-relay.xxx.workers.dev/lan）
 export class LanChannel {
-  constructor({ roomCode, isHost, name }) {
+  constructor({ roomCode, isHost, name, relayUrl }) {
     this.isHost = !!isHost;
     this.name = name || "";
     this.roomCode = (roomCode || genRoomCode()).toUpperCase();
     this.selfId = (isHost ? "host_" : "peer_") + Math.random().toString(36).slice(2, 10);
+    this.relayUrl = relayUrl || null;
     this.ws = null;
     this.listeners = [];
     this.closed = false;
     this._pendingSend = [];
   }
 
+  _buildUrl() {
+    let base;
+    if (this.relayUrl) {
+      // 把 http(s):// 自动改成 ws(s)://
+      base = this.relayUrl.replace(/^http/, "ws");
+    } else {
+      // 同源回退
+      const loc = window.location;
+      const scheme = loc.protocol === "https:" ? "wss:" : "ws:";
+      base = `${scheme}//${loc.host}/lan`;
+    }
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}room=${encodeURIComponent(this.roomCode)}`;
+  }
+
   async open() {
-    const loc = window.location;
-    const scheme = loc.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${scheme}//${loc.host}/lan`;
+    const url = this._buildUrl();
 
     await new Promise((resolve, reject) => {
       let settled = false;
@@ -213,7 +229,10 @@ export class LanChannel {
         if (settled) return;
         settled = true;
         try { ws.close(); } catch (_) {}
-        reject(new Error("连接 LAN 服务器超时（请确认已用 bun scripts/lan-server.js 启动）"));
+        const hint = this.relayUrl
+          ? "连接中继服务器超时，请确认中继地址可达。"
+          : "连接 LAN 服务器超时（请确认已用 bun scripts/lan-server.js 启动）";
+        reject(new Error(hint));
       }, 5000);
 
       ws.addEventListener("open", () => {
