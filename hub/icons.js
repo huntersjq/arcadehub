@@ -366,6 +366,71 @@ function drawStellarSiege(ctx, t, w, h) {
   ctx.stroke();
 }
 
+// ── Texas Hold'em: fanned playing cards ──
+function drawTexasHoldem(ctx, t, w, h) {
+  const cx = w / 2;
+  const cy = h / 2 + 2;
+
+  // Subtle felt glow
+  const glow = ctx.createRadialGradient(cx, cy, 4, cx, cy, 28);
+  glow.addColorStop(0, "rgba(34, 197, 94, 0.35)");
+  glow.addColorStop(1, "transparent");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 28, 0, TAU);
+  ctx.fill();
+
+  // Chip stack below
+  const chipColors = ["#ef4444", "#f5c518", "#1f2937"];
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = chipColors[i];
+    ctx.beginPath();
+    ctx.ellipse(cx - 12, cy + 14 - i * 2, 6, 2, 0, 0, TAU);
+    ctx.fill();
+  }
+
+  // Fanned cards (three cards)
+  const cards = [
+    { angle: -0.35, rank: "A", suit: "♠", red: false },
+    { angle: 0, rank: "K", suit: "♥", red: true },
+    { angle: 0.35, rank: "Q", suit: "♦", red: true },
+  ];
+  const wave = Math.sin(t * 1.5) * 0.04;
+  for (const c of cards) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(c.angle + wave);
+    // card body
+    ctx.fillStyle = "#fafafa";
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, -8, -13, 16, 22, 2);
+    ctx.fill();
+    ctx.stroke();
+    // rank + suit
+    ctx.fillStyle = c.red ? "#dc2626" : "#111827";
+    ctx.font = "bold 7px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(c.rank, -6, -11);
+    ctx.font = "9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(c.suit, 0, 1);
+    ctx.restore();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 // ── Icon Registry ──
 
 const iconDrawers = {
@@ -378,6 +443,7 @@ const iconDrawers = {
   "stellar-speller": drawStellarSpeller,
   "pulse-beat": drawPulseBeat,
   "stellar-siege": drawStellarSiege,
+  "texas-holdem": drawTexasHoldem,
 };
 
 /**

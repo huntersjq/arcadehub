@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>德州扑克 | Arcade Hub</title>
+    <link rel="stylesheet" href="../shared/hub-nav.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- 大厅 -->
+      <section id="lobby" class="screen">
+        <div class="lobby-card">
+          <h1 class="lobby-title">德州扑克</h1>
+          <p class="lobby-subtitle">No-Limit Texas Hold'em · 中文版</p>
+
+          <div class="lobby-tabs" role="tablist">
+            <button class="lobby-tab active" data-mode="solo">单人练习</button>
+            <button class="lobby-tab" data-mode="hotseat">本地多人</button>
+            <button class="lobby-tab" data-mode="multitab">多窗口联机</button>
+            <button class="lobby-tab" data-mode="online">跨设备联机</button>
+          </div>
+
+          <div class="lobby-body">
+            <!-- 通用设置 -->
+            <div class="field-group" id="commonFields">
+              <div class="field">
+                <label>玩家昵称</label>
+                <input type="text" id="nameInput" maxlength="12" placeholder="你的名字" />
+              </div>
+              <div class="field">
+                <label>起始筹码</label>
+                <select id="stackSelect">
+                  <option value="5000">5,000</option>
+                  <option value="10000" selected>10,000</option>
+                  <option value="20000">20,000</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>盲注结构</label>
+                <select id="blindsSelect">
+                  <option value="fixed" selected>固定 50 / 100</option>
+                  <option value="tourney">锦标赛递增</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 本地多人字段 -->
+            <div class="field-group" id="hotseatFields" style="display:none">
+              <div class="field">
+                <label>真人玩家数</label>
+                <select id="humanCount">
+                  <option value="2">2 人</option>
+                  <option value="3">3 人</option>
+                  <option value="4">4 人</option>
+                  <option value="5">5 人</option>
+                  <option value="6">6 人</option>
+                </select>
+              </div>
+              <div class="field" id="humanNamesWrap">
+                <label>玩家昵称（逗号分隔）</label>
+                <input type="text" id="humanNames" placeholder="小红, 小明, 阿强" />
+              </div>
+            </div>
+
+            <!-- AI 设置 -->
+            <div class="field-group" id="aiFields">
+              <div class="field">
+                <label>AI 玩家数</label>
+                <select id="aiCount">
+                  <option value="0">0 个</option>
+                  <option value="1">1 个</option>
+                  <option value="2">2 个</option>
+                  <option value="3" selected>3 个</option>
+                  <option value="4">4 个</option>
+                  <option value="5">5 个</option>
+                  <option value="6">6 个</option>
+                  <option value="7">7 个</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>AI 难度</label>
+                <select id="aiLevel">
+                  <option value="easy">🟢 新手</option>
+                  <option value="normal" selected>🟡 普通</option>
+                  <option value="hard">🔴 高手</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 联机字段 -->
+            <div class="field-group" id="onlineFields" style="display:none">
+              <div class="field">
+                <label>房间码（留空创建新房间）</label>
+                <input type="text" id="roomCode" maxlength="6" placeholder="例如 ABC123" />
+              </div>
+              <div class="field online-hint">
+                <small>房主创建房间后会得到 6 位房间码，分享给朋友加入。基于 WebRTC P2P 连接（PeerJS 公共信令）。</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="lobby-actions">
+            <button class="btn-primary" id="startBtn">开始游戏</button>
+          </div>
+
+          <div class="lobby-footer">
+            <span class="hint">提示：加注滑块可用鼠标、触屏或方向键控制。</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 隐私遮挡屏（本地多人） -->
+      <section id="privacyScreen" class="screen privacy" style="display:none">
+        <div class="privacy-card">
+          <div class="privacy-icon">🔒</div>
+          <h2 id="privacyTarget">请传给下一位玩家</h2>
+          <p>点击下方按钮查看你的底牌</p>
+          <button class="btn-primary" id="privacyReveal">我已就位，查看底牌</button>
+        </div>
+      </section>
+
+      <!-- 等待房间（联机） -->
+      <section id="waitingRoom" class="screen" style="display:none">
+        <div class="lobby-card">
+          <h2 class="lobby-title">等待玩家加入</h2>
+          <div class="room-code-box">
+            <div class="room-code-label">房间码</div>
+            <div class="room-code" id="roomCodeDisplay">------</div>
+            <button class="btn-copy" id="copyRoomBtn">复制</button>
+          </div>
+          <div class="waiting-players" id="waitingPlayers"></div>
+          <div class="lobby-actions">
+            <button class="btn-primary" id="hostStartBtn">开始游戏</button>
+            <button class="btn-secondary" id="leaveRoomBtn">离开房间</button>
+          </div>
+          <p class="hint" id="waitingHint">把房间码分享给朋友即可加入</p>
+        </div>
+      </section>
+
+      <!-- 牌桌 -->
+      <section id="table" class="screen" style="display:none">
+        <div class="table-bg"></div>
+        <div class="table-oval">
+          <!-- 玩家座位由 JS 动态生成 -->
+          <div class="seats" id="seats"></div>
+          <!-- 公共牌 + 底池 -->
+          <div class="board">
+            <div class="pot-info">
+              <div class="pot-label">底池</div>
+              <div class="pot-amount" id="potAmount">0</div>
+            </div>
+            <div class="community-cards" id="communityCards"></div>
+            <div class="stage-info" id="stageInfo">翻前</div>
+          </div>
+          <!-- 荷官播报 -->
+          <div class="dealer-log" id="dealerLog"></div>
+        </div>
+
+        <!-- 玩家 HUD（当前行动玩家的操作区） -->
+        <div class="action-bar" id="actionBar" style="display:none">
+          <div class="hud-top">
+            <div class="hole-cards-mini" id="holeCardsMini"></div>
+            <div class="hud-side">
+              <div class="hand-hint" id="handHint" style="display:none">—</div>
+              <div class="equity-meter" id="equityMeter" style="display:none">
+                <div class="equity-label">
+                  <span class="equity-text">胜率</span>
+                  <span class="equity-value" id="equityValue">—</span>
+                </div>
+                <div class="equity-bar">
+                  <div class="equity-fill" id="equityFill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="raise-presets-circle" id="raisePresetsCircle">
+            <button class="chip-preset" data-preset="min">最小</button>
+            <button class="chip-preset" data-preset="pot-third">⅓ 池</button>
+            <button class="chip-preset" data-preset="pot-half">½ 池</button>
+            <button class="chip-preset" data-preset="pot-two-third">⅔ 池</button>
+            <button class="chip-preset" data-preset="pot">1× 池</button>
+            <button class="chip-preset" data-preset="pot-onepointtwo">1.2× 池</button>
+            <button class="chip-preset" data-preset="max">全下</button>
+          </div>
+          <div class="raise-slider" id="raiseSliderWrap">
+            <input type="range" id="raiseSlider" min="0" max="100" value="0" />
+          </div>
+          <div class="action-buttons-circle">
+            <button class="circle-btn circle-fold" data-act="fold">
+              <span class="circle-btn-label">弃牌</span>
+            </button>
+            <button class="circle-btn circle-check" data-act="check">
+              <span class="circle-btn-label">过牌</span>
+            </button>
+            <button class="circle-btn circle-call" data-act="call">
+              <span class="circle-btn-label">跟注</span>
+              <span class="circle-btn-amount" id="callAmount">0</span>
+            </button>
+            <button class="circle-btn circle-raise" data-act="raise">
+              <span class="circle-btn-label">加注</span>
+              <span class="circle-btn-amount" id="raiseAmount">0</span>
+            </button>
+            <button class="circle-btn circle-allin" data-act="allin">
+              <span class="circle-btn-label">全下</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 顶部工具栏 -->
+        <div class="top-bar">
+          <button class="icon-btn" id="chatToggle" title="聊天">💬</button>
+          <button class="icon-btn" id="historyToggle" title="牌局历史">📜</button>
+          <button class="icon-btn" id="soundToggle" title="静音">🔊</button>
+          <button class="icon-btn" id="leaveBtn" title="离开">🚪</button>
+        </div>
+
+        <!-- 聊天面板 -->
+        <aside class="chat-panel" id="chatPanel">
+          <div class="chat-header">
+            <span>聊天</span>
+            <button class="chat-close" id="chatClose">×</button>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-emojis">
+            <button class="emo" data-emo="🎉">🎉</button>
+            <button class="emo" data-emo="😎">😎</button>
+            <button class="emo" data-emo="😤">😤</button>
+            <button class="emo" data-emo="🤔">🤔</button>
+            <button class="emo" data-emo="💪">💪</button>
+            <button class="emo" data-emo="🙏">🙏</button>
+            <button class="emo" data-emo="🔥">🔥</button>
+            <button class="emo" data-emo="💸">💸</button>
+            <button class="emo" data-emo="🤡">🤡</button>
+            <button class="emo" data-emo="👻">👻</button>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" maxlength="80" placeholder="输入聊天内容 (Enter 发送)" />
+            <button id="chatSend">发送</button>
+          </div>
+        </aside>
+
+        <!-- 牌局历史弹窗 -->
+        <div class="history-modal" id="historyModal" style="display:none">
+          <div class="history-card">
+            <div class="history-header">
+              <h3>牌局历史 · 战绩</h3>
+              <button class="history-close" id="historyClose">×</button>
+            </div>
+            <div class="history-tabs">
+              <button class="history-tab active" data-tab="list">历史</button>
+              <button class="history-tab" data-tab="stats">战绩统计</button>
+            </div>
+            <div class="history-list" id="historyList">
+              <div class="history-empty">暂无历史记录</div>
+            </div>
+            <div class="history-stats" id="historyStats" style="display:none"></div>
+            <div class="history-footer">
+              <button class="btn-secondary" id="historyClear">清空历史</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 手局结束弹窗 -->
+        <div class="hand-result" id="handResult" style="display:none">
+          <div class="hand-result-card">
+            <h3 id="handResultTitle">本局结算</h3>
+            <div id="handResultBody"></div>
+            <button class="btn-primary" id="nextHandBtn">下一手</button>
+          </div>
+        </div>
+
+        <!-- 牌局结束 -->
+        <div class="game-over" id="gameOver" style="display:none">
+          <div class="hand-result-card">
+            <h3>牌局结束</h3>
+            <div id="gameOverBody"></div>
+            <div class="lobby-actions">
+              <button class="btn-primary" id="rematchBtn">再来一局</button>
+              <button class="btn-secondary" id="backLobbyBtn">返回大厅</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 飘字浮动区（表情反应） -->
+    <div id="floatingLayer" class="floating-layer"></div>
+
+    <script src="../shared/hub-integration.js"></script>
+    <script src="../shared/hub-nav.js"></script>
+    <!-- PeerJS 客户端（WebRTC 信令） -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

@@ -22,6 +22,7 @@
       "word-scramble": "stellar-speller",
       "rhythm-tap": "pulse-beat",
       "tower-defense": "stellar-siege",
+      "texas-holdem": "texas-holdem",
     };
     const path = window.location.pathname;
     for (const [slug, id] of Object.entries(slugMap)) {

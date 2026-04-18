@@ -53,7 +53,26 @@ export const achievementDefs = [
   // Per-game achievements (Stellar Siege)
   { id: "ss2-play", name: "Commander", desc: "Play Stellar Siege", icon: "\u{1F6E1}\uFE0F", gameId: "stellar-siege", check: (s, gs) => gs.timesPlayed >= 1 },
   { id: "ss2-wave10", name: "Fortress", desc: "Reach wave 10 in Stellar Siege", icon: "\u{1F3F0}", gameId: "stellar-siege", check: (s, gs) => gs.bestScore >= 200 },
+
+  // Per-game achievements (Texas Hold'em)
+  { id: "th-play", name: "All In", desc: "Play Texas Hold'em", icon: "\u{2660}\uFE0F", gameId: "texas-holdem", check: (s, gs) => gs.timesPlayed >= 1 },
+  { id: "th-wins-10", name: "Card Shark", desc: "Win 10 hands of Texas Hold'em", icon: "\u{1F3B4}", gameId: "texas-holdem", check: () => readHoldemStat("handsWon") >= 10 },
+  { id: "th-wins-100", name: "Poker Pro", desc: "Win 100 hands of Texas Hold'em", icon: "\u{1F48E}", gameId: "texas-holdem", check: () => readHoldemStat("handsWon") >= 100 },
+  { id: "th-full-house", name: "Full House", desc: "Win with a Full House", icon: "\u{1F3E0}", gameId: "texas-holdem", check: () => readHoldemStat("fullHouse") >= 1 },
+  { id: "th-four", name: "Four of a Kind", desc: "Win with Four of a Kind", icon: "\u{1F525}", gameId: "texas-holdem", check: () => readHoldemStat("fourOfAKind") >= 1 },
+  { id: "th-royal", name: "Royal Flush", desc: "Win with a Royal Flush", icon: "\u{1F451}", gameId: "texas-holdem", check: () => readHoldemStat("royalFlush") >= 1 },
 ];
+
+function readHoldemStat(field) {
+  try {
+    const raw = localStorage.getItem("holdem_stats");
+    if (!raw) return 0;
+    const s = JSON.parse(raw);
+    return s[field] || 0;
+  } catch {
+    return 0;
+  }
+}
 
 // ── Storage ──
 

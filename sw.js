@@ -3,7 +3,7 @@
  * Cache-first strategy for offline play.
  */
 
-const CACHE_NAME = "arcade-hub-v4";
+const CACHE_NAME = "arcade-hub-v7";
 
 const STATIC_ASSETS = [
   "/",
@@ -43,6 +43,22 @@ const STATIC_ASSETS = [
   "/games/rhythm-tap/main.js",
   "/games/tower-defense/index.html",
   "/games/tower-defense/main.js",
+  "/games/texas-holdem/index.html",
+  "/games/texas-holdem/main.js",
+  "/games/texas-holdem/style.css",
+  "/games/texas-holdem/engine/deck.js",
+  "/games/texas-holdem/engine/hand.js",
+  "/games/texas-holdem/engine/pot.js",
+  "/games/texas-holdem/engine/game.js",
+  "/games/texas-holdem/ai/bot.js",
+  "/games/texas-holdem/ui/table.js",
+  "/games/texas-holdem/ui/controls.js",
+  "/games/texas-holdem/ui/chat.js",
+  "/games/texas-holdem/ui/privacy.js",
+  "/games/texas-holdem/ui/history.js",
+  "/games/texas-holdem/ui/sfx.js",
+  "/games/texas-holdem/ui/stats.js",
+  "/games/texas-holdem/net/channel.js",
 ];
 
 // Install: cache all static assets
