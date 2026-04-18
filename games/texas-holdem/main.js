@@ -18,7 +18,7 @@ import { PrivacyShield } from "./ui/privacy.js";
 import { HandHistory } from "./ui/history.js";
 import { SoundFx } from "./ui/sfx.js";
 import { recordHand, showMilestoneToast } from "./ui/stats.js";
-import { LocalChannel, PeerChannel, genRoomCode } from "./net/channel.js";
+import { LocalChannel, PeerChannel, LanChannel, genRoomCode } from "./net/channel.js";
 
 // ── 全局状态 ──
 
@@ -126,10 +126,16 @@ function updateLobbyFields() {
   const hotseatFields = root.getElementById("hotseatFields");
   const aiFields = root.getElementById("aiFields");
   const onlineFields = root.getElementById("onlineFields");
+  const hintPeer = root.getElementById("onlineHintPeer");
+  const hintLan = root.getElementById("onlineHintLan");
 
   hotseatFields.style.display = currentMode === "hotseat" ? "" : "none";
-  onlineFields.style.display = (currentMode === "multitab" || currentMode === "online") ? "" : "none";
+  const isOnlineish = currentMode === "multitab" || currentMode === "online" || currentMode === "lan";
+  onlineFields.style.display = isOnlineish ? "" : "none";
   aiFields.style.display = (currentMode === "solo" || currentMode === "hotseat") ? "" : "none";
+
+  if (hintPeer) hintPeer.style.display = currentMode === "online" ? "" : "none";
+  if (hintLan)  hintLan.style.display  = currentMode === "lan" ? "" : "none";
 }
 
 function bindTableUIEvents() {
@@ -182,7 +188,7 @@ async function onStartClicked() {
     while (humanNames.length < humanCount) humanNames.push("玩家" + (humanNames.length + 1));
     humanNames = humanNames.slice(0, humanCount);
     startLocalGame({ name, stack, blindsMode, humanCount, humanNames, hotseat: true });
-  } else if (currentMode === "multitab" || currentMode === "online") {
+  } else if (currentMode === "multitab" || currentMode === "online" || currentMode === "lan") {
     await startOnlineFlow(name, stack, blindsMode);
   }
 }
@@ -233,7 +239,10 @@ function startLocalGame({ name, stack, blindsMode, humanCount, humanNames, hotse
 
 async function startOnlineFlow(name, stack, blindsMode) {
   const roomCode = root.getElementById("roomCode").value.trim().toUpperCase();
-  const ChannelCtor = currentMode === "multitab" ? LocalChannel : PeerChannel;
+  const ChannelCtor =
+    currentMode === "multitab" ? LocalChannel :
+    currentMode === "lan" ? LanChannel :
+    PeerChannel;
   isHost = !roomCode;
   const actualRoomCode = roomCode || genRoomCode();
 
@@ -450,15 +459,16 @@ function mountTableUI({ selfName, hotseat }) {
 }
 
 function onHumanAction(action) {
-  const actor = game ? game.players[game.actionIndex] : null;
-  if (!actor) return;
-
+  // 客户端（非房主）：无本地 game 实例，直接把动作发给房主
   if (isOnlineMode() && !isHost) {
-    // 客户端发给房主
     channel.send({ type: "action", playerId: selfId, action });
     controls.hide();
     return;
   }
+
+  // 本地 / 房主路径：需要查出当前 actor
+  const actor = game ? game.players[game.actionIndex] : null;
+  if (!actor) return;
 
   // 本地 / 房主
   const pid = hotseatActiveId() || actor.id;
@@ -496,7 +506,7 @@ function getSelfName() {
 }
 
 function isOnlineMode() {
-  return currentMode === "multitab" || currentMode === "online";
+  return currentMode === "multitab" || currentMode === "online" || currentMode === "lan";
 }
 
 // ── 事件循环（房主 / 本地） ──

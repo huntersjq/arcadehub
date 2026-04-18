@@ -1,0 +1,9 @@
+{
+  "name": "arcadehub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 8765 --bind 0.0.0.0",
+    "lan": "bun scripts/lan-server.js 8765"
+  }
+}

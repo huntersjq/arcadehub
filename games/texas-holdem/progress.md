@@ -41,7 +41,8 @@
 | 声音特效（Web Audio 过程化合成 · 发牌/下注/弃牌/赢家） | ✅ 完成 |
 | 终生战绩 + 里程碑（皇家同花顺 / 四条 / 葫芦 / 胜场） | ✅ 完成 |
 | 成就接入 hub（6 条 texas-holdem 专属成就） | ✅ 完成 |
-| 跨设备联机真机测试 | ⏳ 待验证 |
+| **局域网联机（WebSocket 中继，无需公网）** | ✅ 完成 |
+| 跨设备联机真机测试（PeerJS 公网） | ⏳ 待验证 |
 
 ## 已完成模块明细
 
@@ -69,7 +70,10 @@ games/texas-holdem/
 │   ├── stats.js        # 终生战绩 + 里程碑追踪 + toast
 │   └── sfx.js          # Web Audio 过程化合成音效
 └── net/
-    └── channel.js      # 统一传输层（LocalChannel / PeerChannel）
+    └── channel.js      # 统一传输层（LocalChannel / PeerChannel / LanChannel）
+
+scripts/
+└── lan-server.js       # Bun 单文件：静态托管 + WebSocket 中继
 ```
 
 ### 视觉与交互
@@ -135,6 +139,37 @@ games/texas-holdem/
 - `hub-integration.js` slug 映射
 - Service Worker 缓存 v5，含所有模块
 
+## 局域网联机（LAN 模式）使用
+
+完全不依赖 PeerJS 公网信令，走本地 WebSocket 中继。适合两台同 Wi-Fi 电脑对战。
+
+**启动：**
+```bash
+bun scripts/lan-server.js 8765
+# 或： pnpm run lan / npm run lan
+```
+
+服务器会同时：
+- 托管整个仓库静态文件（替代 `python3 -m http.server`）
+- 在 `/lan` 开放 WebSocket 中继
+
+启动后控制台会打印 LAN 地址，例如：
+```
+LAN: http://192.168.1.9:8765/
+德扑: http://192.168.1.9:8765/games/texas-holdem/
+```
+
+**对战流程：**
+1. 两台电脑连同一 Wi-Fi，浏览器都打开 `http://<LAN-IP>:8765/games/texas-holdem/`
+2. 电脑 A：「**局域网联机**」tab → 房间码留空 → 开始游戏 → 记下 6 位房间码
+3. 电脑 B：「**局域网联机**」tab → 填房间码 → 开始游戏 → 等待房出现两人
+4. A 点「开始游戏」→ 牌局开始
+
+**服务端设计：**
+- 房主权威模型：房主跑完整的 `Game` 状态机，客户端只发 `action/chat/emoji`
+- 服务器纯中继：收到客户端包 → 打上 `_from` 路由到房主；房主包 → 按 `to` 分发
+- 私密底牌：`{to:peerId, payload:{type:"hole_cards"}}`，服务器只单发给目标
+
 ## 近期迭代（2026-04-18 本次落地）
 
 ### 交互与视觉
@@ -184,10 +219,11 @@ games/texas-holdem/
 
 | 类型 | 行数 |
 |---|---|
-| JavaScript | ~3000 |
-| CSS | ~1650 |
-| HTML | ~290 |
-| **合计** | **~4940** |
+| JavaScript（游戏） | ~3640 |
+| LAN 服务器 | ~215 |
+| CSS | ~1620 |
+| HTML | ~305 |
+| **合计** | **~5780** |
 
 ## 提交历史
 
@@ -195,6 +231,7 @@ games/texas-holdem/
 - `c4418dd` feat(texas-holdem): UI polish, settlement redesign, WePoker-style cards
 - （2026-04-18 第 1 轮：圆形按钮 / 动作胶囊 / 实时胜率 / 牌型提示 / 历史记录）
 - （2026-04-18 第 2 轮：音效 / 终生战绩 + 里程碑 / hub 成就接入 / 战绩统计 tab）
+- （2026-04-18 第 3 轮：LAN 联机模式，Bun WebSocket 中继服务器 + `LanChannel` + 新 tab，修复客户端 `onHumanAction` 早退 bug）
 
 ---
 

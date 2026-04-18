@@ -19,6 +19,7 @@
             <button class="lobby-tab active" data-mode="solo">单人练习</button>
             <button class="lobby-tab" data-mode="hotseat">本地多人</button>
             <button class="lobby-tab" data-mode="multitab">多窗口联机</button>
+            <button class="lobby-tab" data-mode="lan">局域网联机</button>
             <button class="lobby-tab" data-mode="online">跨设备联机</button>
           </div>
 
@@ -95,8 +96,13 @@
                 <label>房间码（留空创建新房间）</label>
                 <input type="text" id="roomCode" maxlength="6" placeholder="例如 ABC123" />
               </div>
-              <div class="field online-hint">
-                <small>房主创建房间后会得到 6 位房间码，分享给朋友加入。基于 WebRTC P2P 连接（PeerJS 公共信令）。</small>
+              <div class="field online-hint" id="onlineHintPeer">
+                <small>基于 WebRTC P2P 连接（PeerJS 公共信令）。房主创建后得到 6 位房间码，分享给朋友加入。<br>
+                <b>需要外网。</b></small>
+              </div>
+              <div class="field online-hint" id="onlineHintLan" style="display:none">
+                <small>无需外网，走同 LAN 的 WebSocket 中继。<br>
+                需先启动：<code>bun scripts/lan-server.js 8765</code>，两台电脑同时访问同一个 LAN 地址即可。</small>
               </div>
             </div>
           </div>

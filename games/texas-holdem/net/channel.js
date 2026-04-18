@@ -1,9 +1,10 @@
 // 联机传输层
 // 统一对外暴露：connect(), onMessage(cb), send(msg), close(), getPeerId()
 //
-// 两种实现：
+// 三种实现：
 //   LocalChannel  - 基于 BroadcastChannel（同浏览器多标签）
-//   PeerChannel   - 基于 PeerJS（跨设备 WebRTC P2P）
+//   PeerChannel   - 基于 PeerJS（跨设备 WebRTC P2P，需公网）
+//   LanChannel    - 基于 WebSocket 中继到本地 LAN 服务器（无需公网）
 //
 // 协议（房主为权威）
 //   {type:'hello', name, peerId}                   客户端→房主：请求加入
@@ -181,6 +182,125 @@ export class PeerChannel {
     for (const conn of this.connections.values()) try { conn.close(); } catch (_) {}
     if (this.hostConn) try { this.hostConn.close(); } catch (_) {}
     if (this.peer) try { this.peer.destroy(); } catch (_) {}
+  }
+}
+
+// 基于 WebSocket 中继的 LAN 实现
+// 服务器：scripts/lan-server.js（Bun）
+// 连接地址：同源的 /lan（ws:// 或 wss://）
+export class LanChannel {
+  constructor({ roomCode, isHost, name }) {
+    this.isHost = !!isHost;
+    this.name = name || "";
+    this.roomCode = (roomCode || genRoomCode()).toUpperCase();
+    this.selfId = (isHost ? "host_" : "peer_") + Math.random().toString(36).slice(2, 10);
+    this.ws = null;
+    this.listeners = [];
+    this.closed = false;
+    this._pendingSend = [];
+  }
+
+  async open() {
+    const loc = window.location;
+    const scheme = loc.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${scheme}//${loc.host}/lan`;
+
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const ws = new WebSocket(url);
+      this.ws = ws;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { ws.close(); } catch (_) {}
+        reject(new Error("连接 LAN 服务器超时（请确认已用 bun scripts/lan-server.js 启动）"));
+      }, 5000);
+
+      ws.addEventListener("open", () => {
+        ws.send(JSON.stringify({
+          type: "init",
+          room: this.roomCode,
+          isHost: this.isHost,
+          peerId: this.selfId,
+          name: this.name,
+        }));
+      });
+
+      ws.addEventListener("message", (ev) => {
+        let data;
+        try { data = JSON.parse(ev.data); } catch { return; }
+        if (!settled) {
+          if (data.type === "init_ok") {
+            settled = true;
+            clearTimeout(timer);
+            // 发出 pending 消息
+            for (const [msg, to] of this._pendingSend) this._rawSend(msg, to);
+            this._pendingSend = [];
+            resolve();
+            return;
+          }
+          if (data.type === "error") {
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error(data.error || "LAN 服务器拒绝连接"));
+            return;
+          }
+        }
+        // 普通转发
+        const from = data._from || null;
+        const { _from, ...payload } = data;
+        for (const cb of this.listeners) cb(payload, from);
+      });
+
+      ws.addEventListener("close", () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error("LAN 服务器连接被关闭"));
+          return;
+        }
+        if (!this.closed) {
+          this._dispatch({ type: "disconnected" }, "server");
+        }
+      });
+
+      ws.addEventListener("error", () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error("LAN 服务器连接失败（ws://host/lan）"));
+        }
+      });
+    });
+  }
+
+  getRoomCode() { return this.roomCode; }
+  getSelfId() { return this.selfId; }
+
+  onMessage(cb) { this.listeners.push(cb); }
+
+  _dispatch(msg, from) {
+    for (const cb of this.listeners) cb(msg, from);
+  }
+
+  _rawSend(msg, to) {
+    if (!this.ws || this.ws.readyState !== 1) return;
+    const envelope = { to: to || null, payload: msg };
+    this.ws.send(JSON.stringify(envelope));
+  }
+
+  send(msg, to = null) {
+    if (this.closed) return;
+    if (!this.ws || this.ws.readyState !== 1) {
+      this._pendingSend.push([msg, to]);
+      return;
+    }
+    this._rawSend(msg, to);
+  }
+
+  close() {
+    this.closed = true;
+    try { this.ws && this.ws.close(); } catch (_) {}
   }
 }
 
