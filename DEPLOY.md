@@ -60,22 +60,26 @@ Published arcadehub-relay (xxx ms)
   https://arcadehub-relay.<YOUR-SUBDOMAIN>.workers.dev
 ```
 
-### 2.3 在前端填中继地址
+### 2.3 写入默认中继地址（**推荐**）
 
-在德州扑克大厅：
+编辑 `games/texas-holdem/net/relay-config.js`：
 
-1. 点 **LAN / 中继** tab
-2. 在「中继地址」输入框填入（注意协议换成 `wss://`，路径加 `/lan`）：
+```js
+export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.YOURNAME.workers.dev/lan";
+```
 
-   ```
-   wss://arcadehub-relay.YOURNAME.workers.dev/lan
-   ```
+提交推送后，Pages 会自动发布，所有访客打开 **LAN / 中继** tab 时**中继地址自动填好**，啥都不用做。
 
-3. 房主创建房间 → 记下房间码分享给朋友 → 朋友填入同样的中继地址 + 房间码加入
+### 2.4 （可选）手动填中继地址
 
-这个地址会被记在 `localStorage.holdem_relay_url`，下次自动回填。
+如果没有写入默认值，每位玩家也可以在大厅自行输入：
 
-### 2.4 免费额度
+- **LAN / 中继** tab → 中继地址：`wss://arcadehub-relay.YOURNAME.workers.dev/lan`
+- 浏览器会记在 `localStorage.holdem_relay_url`，下次自动回填
+
+**优先级**：`localStorage` > `relay-config.js` 的默认值 > 同源 `/lan`
+
+### 2.5 免费额度
 
 Cloudflare Workers 免费层：
 - 10 万次请求/天

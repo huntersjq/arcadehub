@@ -19,6 +19,7 @@ import { HandHistory } from "./ui/history.js";
 import { SoundFx } from "./ui/sfx.js";
 import { recordHand, showMilestoneToast } from "./ui/stats.js";
 import { LocalChannel, PeerChannel, LanChannel, genRoomCode } from "./net/channel.js";
+import { DEFAULT_RELAY_URL } from "./net/relay-config.js";
 
 // ── 全局状态 ──
 
@@ -72,10 +73,12 @@ function init() {
   const savedName = localStorage.getItem("holdem_name");
   nameInput.value = savedName || randomName();
 
-  // 中继地址回填（LAN / 公网中继模式）
+  // 中继地址回填：优先用 localStorage 里的；否则回退到代码里配置的默认值
   const relayInput = root.getElementById("relayUrl");
-  const savedRelay = localStorage.getItem("holdem_relay_url");
-  if (relayInput && savedRelay) relayInput.value = savedRelay;
+  if (relayInput) {
+    const savedRelay = localStorage.getItem("holdem_relay_url");
+    relayInput.value = savedRelay || DEFAULT_RELAY_URL || "";
+  }
 
   sfx = new SoundFx();
   soundOn = sfx.isEnabled();
