@@ -3,6 +3,17 @@
 import { SUIT_SYMBOL } from "../engine/deck.js";
 import { STAGE_NAME_CN } from "../engine/game.js";
 
+function capsuleText(b) {
+  switch (b.action) {
+    case "fold": return "弃牌";
+    case "check": return "过牌";
+    case "call": return `跟注 ${(b.amount || 0).toLocaleString()}`;
+    case "raise": return `加注 ${(b.totalBet || b.amount || 0).toLocaleString()}`;
+    case "allin": return "全下";
+    default: return b.action;
+  }
+}
+
 // 座位在椭圆上的角度（以百分比形式）
 function seatPositions(count) {
   // 本地玩家放在底部，其他按顺时针环绕
@@ -174,6 +185,15 @@ export class TableView {
         bet.className = "seat-bet show";
         bet.textContent = `${p.currentBet.toLocaleString()}`;
         seat.appendChild(bet);
+      }
+
+      // 行动胶囊（跟注 / 加注 / 弃牌 / 过牌 / 全下）
+      const bubble = state.actionBubbles?.[p.id];
+      if (bubble) {
+        const cap = document.createElement("div");
+        cap.className = "seat-capsule cap-" + bubble.action;
+        cap.textContent = capsuleText(bubble);
+        seat.appendChild(cap);
       }
 
       // 状态提示

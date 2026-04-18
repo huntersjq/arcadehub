@@ -15,6 +15,9 @@ import { TableView, renderCardEl } from "./ui/table.js";
 import { Controls } from "./ui/controls.js";
 import { Chat } from "./ui/chat.js";
 import { PrivacyShield } from "./ui/privacy.js";
+import { HandHistory } from "./ui/history.js";
+import { SoundFx } from "./ui/sfx.js";
+import { recordHand, showMilestoneToast } from "./ui/stats.js";
 import { LocalChannel, PeerChannel, genRoomCode } from "./net/channel.js";
 
 // ── 全局状态 ──
@@ -39,6 +42,8 @@ let tableView = null;
 let controls = null;
 let chat = null;
 let privacy = null;
+let history = null;
+let sfx = null;
 let ownHoleCards = {};              // 每个真人的底牌（本地/hot-seat: map; 联机客户端: 只有自己的）
 let revealedHoles = {};             // 摊牌时揭示的底牌
 let latestSnapshot = null;          // 客户端镜像用
@@ -48,6 +53,7 @@ let waitingPlayers = [];            // 等待房玩家列表（联机）
 let handStartStacks = {};           // 本手开始时各玩家筹码快照（用于结算展示盈亏）
 let handStartHoles = {};            // 本手各玩家底牌（镜像客户端和结算用）
 let lastCommunityCards = [];        // 本手最终公共牌（结算用）
+let lastActionBubbles = {};         // { playerId: { action, amount, stage, handNumber, t } } 每人最近一次行动
 
 // ── 屏幕切换 ──
 
@@ -65,6 +71,9 @@ function init() {
   const nameInput = root.getElementById("nameInput");
   const savedName = localStorage.getItem("holdem_name");
   nameInput.value = savedName || randomName();
+
+  sfx = new SoundFx();
+  soundOn = sfx.isEnabled();
 
   bindLobbyEvents();
   bindTableUIEvents();
@@ -131,8 +140,12 @@ function bindTableUIEvents() {
   });
   root.getElementById("soundToggle").addEventListener("click", () => {
     soundOn = !soundOn;
+    if (sfx) sfx.setEnabled(soundOn);
     root.getElementById("soundToggle").textContent = soundOn ? "🔊" : "🔇";
+    if (soundOn) sfx?.button();
   });
+  // 初始图标
+  root.getElementById("soundToggle").textContent = soundOn ? "🔊" : "🔇";
   root.getElementById("nextHandBtn").addEventListener("click", () => {
     root.getElementById("handResult").style.display = "none";
     if (isHost && game && game.stage !== STAGE.GAME_OVER) {
@@ -321,6 +334,7 @@ function clientHandleMessage(msg, from) {
     for (const ev of msg.events) handleMirrorEvent(ev);
   } else if (msg.type === "hole_cards") {
     ownHoleCards[selfId] = msg.cards;
+    sfx?.deal();
     renderMirror();
   } else if (msg.type === "chat") {
     chat?.addMessage({ sender: msg.sender, text: msg.text });
@@ -431,6 +445,8 @@ function mountTableUI({ selfName, hotseat }) {
     onSend: (text) => sendChat(text),
     onEmoji: (emoji) => sendEmoji(emoji),
   });
+
+  history = new HandHistory(root);
 }
 
 function onHumanAction(action) {
@@ -531,6 +547,7 @@ function handleAuthoritativeEvent(ev) {
     handStartStacks = {};
     handStartHoles = {};
     lastCommunityCards = [];
+    lastActionBubbles = {};
     if (game) {
       for (const p of game.players) handStartStacks[p.id] = p.stack;
     }
@@ -542,14 +559,17 @@ function handleAuthoritativeEvent(ev) {
     if (p?.isHuman) ownHoleCards[ev.playerId] = ev.cards;
     // 本地/房主：全量保存以便结算展示
     handStartHoles[ev.playerId] = ev.cards.slice();
+    if (p?.id === selfId) sfx?.deal();
   } else if (ev.type === "stage") {
     const stageCN = STAGE_NAME_CN[ev.stage];
     tableView?.showDealerLog(`—— ${stageCN} ——`);
-    // 翻牌/转牌/河牌 时显示大横幅
     if (["flop", "turn", "river"].includes(ev.stage)) {
       tableView?.showStageBanner(stageCN);
+      sfx?.flop();
     }
     if (ev.community) lastCommunityCards = ev.community.slice();
+    // 新一轮开始，保留弃牌胶囊，清除其余
+    pruneActionBubbles();
   } else if (ev.type === "action") {
     const p = game.players.find((x) => x.id === ev.playerId);
     if (!p) return;
@@ -562,6 +582,15 @@ function handleAuthoritativeEvent(ev) {
         tableView.flyChipsToPot(p.id, ev.amount);
       }
     }
+    playActionSfx(ev.action);
+    // 行动胶囊
+    lastActionBubbles[ev.playerId] = {
+      action: ev.action,
+      amount: ev.amount || 0,
+      totalBet: ev.totalBet || 0,
+      stage: game.stage,
+      handNumber: game.handNumber,
+    };
   } else if (ev.type === "showdown") {
     lastCommunityCards = ev.community.slice();
     for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
@@ -578,6 +607,7 @@ function handleAuthoritativeEvent(ev) {
     for (const w of ev.winners) {
       tableView?.burstConfetti(w.id);
     }
+    sfx?.win();
   } else if (ev.type === "hand_over") {
     // 牌桌清空公共牌，等待下一手
     tableView?.clearBoard();
@@ -594,6 +624,7 @@ function handleMirrorEvent(ev) {
     revealedHoles = {};
     handStartStacks = {};
     lastCommunityCards = [];
+    lastActionBubbles = {};
     if (latestSnapshot) {
       for (const p of latestSnapshot.players) handStartStacks[p.id] = p.stack;
     }
@@ -601,7 +632,11 @@ function handleMirrorEvent(ev) {
   } else if (ev.type === "stage") {
     if (ev.community) lastCommunityCards = ev.community.slice();
     const stageCN = STAGE_NAME_CN[ev.stage];
-    if (["flop", "turn", "river"].includes(ev.stage)) tableView?.showStageBanner(stageCN);
+    if (["flop", "turn", "river"].includes(ev.stage)) {
+      tableView?.showStageBanner(stageCN);
+      sfx?.flop();
+    }
+    pruneActionBubbles();
   } else if (ev.type === "action") {
     const p = latestSnapshot?.players.find((x) => x.id === ev.playerId);
     if (p) {
@@ -611,6 +646,14 @@ function handleMirrorEvent(ev) {
         tableView?.flyChipsToPot(p.id, ev.amount);
       }
     }
+    playActionSfx(ev.action);
+    lastActionBubbles[ev.playerId] = {
+      action: ev.action,
+      amount: ev.amount || 0,
+      totalBet: ev.totalBet || 0,
+      stage: latestSnapshot?.stage || "",
+      handNumber: latestSnapshot?.handNumber || 0,
+    };
   } else if (ev.type === "showdown") {
     lastCommunityCards = ev.community.slice();
     for (const h of ev.hands) revealedHoles[h.id] = h.holeCards;
@@ -623,6 +666,7 @@ function handleMirrorEvent(ev) {
     pendingHandResult.reason = ev.winners[0]?.reason;
     tableView?.highlightWinners(ev.winners.map((w) => w.id));
     for (const w of ev.winners) tableView?.burstConfetti(w.id);
+    sfx?.win();
   } else if (ev.type === "hand_over") {
     tableView?.clearBoard();
     showHandResult();
@@ -660,6 +704,7 @@ function renderAuthoritative() {
   // 注入视角用底牌
   snap.ownHoleCards = ownHoleCards[currentPerspectiveId()] || null;
   snap.revealedHoles = revealedHoles;
+  snap.actionBubbles = lastActionBubbles;
   tableView.render(snap, currentPerspectiveId());
 
   // 行动条
@@ -706,7 +751,12 @@ async function showControlsForActor(actor) {
     controls._lastShownPid = actor.id;
   }
 
-  controls.show(ctx, hole);
+  const opponents = Math.max(1, game.inHandPlayers().length - 1);
+  controls.show(ctx, hole, {
+    community: game.community.slice(),
+    opponents,
+    stage: game.stage,
+  });
 }
 
 function buildActionContextFromGame(p) {
@@ -733,6 +783,7 @@ function renderMirror() {
   if (!latestSnapshot || !tableView) return;
   latestSnapshot.ownHoleCards = ownHoleCards[selfId] || null;
   latestSnapshot.revealedHoles = revealedHoles;
+  latestSnapshot.actionBubbles = lastActionBubbles;
   tableView.render(latestSnapshot, selfId);
 
   // 如果轮到自己 → 显示操作条
@@ -751,6 +802,7 @@ function renderMirror() {
   if (toCall > 0 && p.stack > 0) legalActions.push("call");
   if (p.stack > toCall) legalActions.push("raise");
   if (p.stack > 0) legalActions.push("allin");
+  const opponents = Math.max(1, latestSnapshot.players.filter((x) => !x.folded && !x.sittingOut).length - 1);
   controls.show({
     toCall, minRaise, maxRaise,
     currentBet: latestSnapshot.currentBet,
@@ -758,7 +810,11 @@ function renderMirror() {
     bigBlind: latestSnapshot.bigBlind,
     playerCurrentBet: p.currentBet,
     legalActions,
-  }, ownHoleCards[selfId] || []);
+  }, ownHoleCards[selfId] || [], {
+    community: (latestSnapshot.community || []).slice(),
+    opponents,
+    stage: latestSnapshot.stage,
+  });
 }
 
 function currentPerspectiveId() {
@@ -952,7 +1008,68 @@ function showHandResult() {
     }, 100);
   }
 
+  // 写入历史记录
+  persistHandHistory(playersToShow, winnerMap, handMap);
+
+  // 记录终生战绩 + 里程碑
+  persistLifetimeStats(playersToShow, winnerMap, handMap);
+
   // 注意：此处不清 pendingHandResult，留给下一次 hand_start 清理
+}
+
+function persistLifetimeStats(playersToShow, winnerMap, handMap) {
+  // 仅记录真人（单机视角下 selfId；hot-seat 时全员记录）
+  const targetIds = currentMode === "hotseat" ? humanPlayerIds : [selfId];
+  const totalPot = Object.values(winnerMap).reduce((sum, w) => sum + (w.amount || 0), 0)
+    || (pendingHandResult?.winners || []).reduce((sum, w) => sum + (w.amount || 0), 0);
+  for (const pid of targetIds) {
+    const p = playersToShow.find((x) => x.id === pid);
+    if (!p) continue;
+    const startStack = handStartStacks[pid] ?? p.stack;
+    const delta = p.stack - startStack;
+    const hand = handMap.get(pid);
+    const won = winnerMap.has(pid);
+    const unlocks = recordHand({
+      selfDelta: delta,
+      selfBestHand: hand,
+      pot: totalPot,
+      won,
+    });
+    for (const m of unlocks) {
+      showMilestoneToast(m);
+      sfx?.win();
+    }
+  }
+}
+
+function persistHandHistory(playersToShow, winnerMap, handMap) {
+  if (!history) return;
+  const handNumber = game?.handNumber || latestSnapshot?.handNumber || 0;
+  const entry = {
+    time: Date.now(),
+    handNumber,
+    community: lastCommunityCards.slice(),
+    reason: pendingHandResult?.reason || null,
+    players: playersToShow.map((p) => {
+      const hand = handMap.get(p.id);
+      const holes = hand?.holeCards
+        || revealedHoles[p.id]
+        || ownHoleCards[p.id]
+        || handStartHoles[p.id]
+        || [];
+      const startStack = handStartStacks[p.id] ?? p.stack;
+      return {
+        id: p.id,
+        name: p.name,
+        folded: !!p.folded,
+        rank: hand?.name || (p.folded ? "弃牌" : null),
+        holeCards: holes.slice(),
+        delta: p.stack - startStack,
+      };
+    }),
+    winners: (pendingHandResult?.winners || []).map((w) => ({ id: w.id, amount: w.amount, rank: w.rank })),
+  };
+  history.record(entry);
 }
 
 function startNextHand() {
@@ -1018,6 +1135,7 @@ function cleanupGame() {
   controls = null;
   chat = null;
   privacy = null;
+  history = null;
   latestSnapshot = null;
   ownHoleCards = {};
   revealedHoles = {};
@@ -1035,6 +1153,26 @@ function shuffleInPlace(arr) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
+}
+
+function playActionSfx(action) {
+  if (!sfx) return;
+  switch (action) {
+    case "fold":  sfx.fold(); break;
+    case "check": sfx.check(); break;
+    case "call":  sfx.call(); break;
+    case "raise": sfx.raise(); break;
+    case "allin": sfx.allin(); break;
+  }
+}
+
+// 新一轮下注开始时，只保留「弃牌」胶囊（弃牌状态贯穿整手）
+function pruneActionBubbles() {
+  const next = {};
+  for (const [pid, b] of Object.entries(lastActionBubbles)) {
+    if (b.action === "fold") next[pid] = b;
+  }
+  lastActionBubbles = next;
 }
 
 // ── 入口 ──

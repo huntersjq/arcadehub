@@ -10,12 +10,12 @@ import { bestOfSeven, compareHands, quickHandStrength } from "../engine/hand.js"
 import { buildDeck, RANK_VALUE } from "../engine/deck.js";
 
 // 快速底牌强度（0-1），仅基于 2 张底牌
-function preflopStrength(hole) {
+export function preflopStrength(hole) {
   return quickHandStrength(hole).values[0];
 }
 
 // 蒙特卡洛：模拟 N 轮对战 opponents 个随机对手，返回估计胜率
-function monteCarloEquity(holeCards, community, opponents, iterations) {
+export function monteCarloEquity(holeCards, community, opponents, iterations) {
   const known = new Set([...holeCards, ...community]);
   const base = buildDeck().filter((c) => !known.has(c));
   let wins = 0, ties = 0;

@@ -160,28 +160,58 @@
 
         <!-- 玩家 HUD（当前行动玩家的操作区） -->
         <div class="action-bar" id="actionBar" style="display:none">
-          <div class="hole-cards-mini" id="holeCardsMini"></div>
-          <div class="action-buttons">
-            <button class="act-btn act-fold" data-act="fold">弃牌</button>
-            <button class="act-btn act-check" data-act="check">过牌</button>
-            <button class="act-btn act-call" data-act="call">跟注 <span id="callAmount">0</span></button>
-            <button class="act-btn act-raise" data-act="raise">加注 <span id="raiseAmount">0</span></button>
-            <button class="act-btn act-allin" data-act="allin">全下</button>
-          </div>
-          <div class="raise-slider">
-            <input type="range" id="raiseSlider" min="0" max="100" value="0" />
-            <div class="raise-presets">
-              <button data-preset="min">最小加注</button>
-              <button data-preset="pot-half">½ 底池</button>
-              <button data-preset="pot">1× 底池</button>
-              <button data-preset="max">全下</button>
+          <div class="hud-top">
+            <div class="hole-cards-mini" id="holeCardsMini"></div>
+            <div class="hud-side">
+              <div class="hand-hint" id="handHint" style="display:none">—</div>
+              <div class="equity-meter" id="equityMeter" style="display:none">
+                <div class="equity-label">
+                  <span class="equity-text">胜率</span>
+                  <span class="equity-value" id="equityValue">—</span>
+                </div>
+                <div class="equity-bar">
+                  <div class="equity-fill" id="equityFill"></div>
+                </div>
+              </div>
             </div>
+          </div>
+          <div class="raise-presets-circle" id="raisePresetsCircle">
+            <button class="chip-preset" data-preset="min">最小</button>
+            <button class="chip-preset" data-preset="pot-third">⅓ 池</button>
+            <button class="chip-preset" data-preset="pot-half">½ 池</button>
+            <button class="chip-preset" data-preset="pot-two-third">⅔ 池</button>
+            <button class="chip-preset" data-preset="pot">1× 池</button>
+            <button class="chip-preset" data-preset="pot-onepointtwo">1.2× 池</button>
+            <button class="chip-preset" data-preset="max">全下</button>
+          </div>
+          <div class="raise-slider" id="raiseSliderWrap">
+            <input type="range" id="raiseSlider" min="0" max="100" value="0" />
+          </div>
+          <div class="action-buttons-circle">
+            <button class="circle-btn circle-fold" data-act="fold">
+              <span class="circle-btn-label">弃牌</span>
+            </button>
+            <button class="circle-btn circle-check" data-act="check">
+              <span class="circle-btn-label">过牌</span>
+            </button>
+            <button class="circle-btn circle-call" data-act="call">
+              <span class="circle-btn-label">跟注</span>
+              <span class="circle-btn-amount" id="callAmount">0</span>
+            </button>
+            <button class="circle-btn circle-raise" data-act="raise">
+              <span class="circle-btn-label">加注</span>
+              <span class="circle-btn-amount" id="raiseAmount">0</span>
+            </button>
+            <button class="circle-btn circle-allin" data-act="allin">
+              <span class="circle-btn-label">全下</span>
+            </button>
           </div>
         </div>
 
         <!-- 顶部工具栏 -->
         <div class="top-bar">
           <button class="icon-btn" id="chatToggle" title="聊天">💬</button>
+          <button class="icon-btn" id="historyToggle" title="牌局历史">📜</button>
           <button class="icon-btn" id="soundToggle" title="静音">🔊</button>
           <button class="icon-btn" id="leaveBtn" title="离开">🚪</button>
         </div>
@@ -210,6 +240,27 @@
             <button id="chatSend">发送</button>
           </div>
         </aside>
+
+        <!-- 牌局历史弹窗 -->
+        <div class="history-modal" id="historyModal" style="display:none">
+          <div class="history-card">
+            <div class="history-header">
+              <h3>牌局历史 · 战绩</h3>
+              <button class="history-close" id="historyClose">×</button>
+            </div>
+            <div class="history-tabs">
+              <button class="history-tab active" data-tab="list">历史</button>
+              <button class="history-tab" data-tab="stats">战绩统计</button>
+            </div>
+            <div class="history-list" id="historyList">
+              <div class="history-empty">暂无历史记录</div>
+            </div>
+            <div class="history-stats" id="historyStats" style="display:none"></div>
+            <div class="history-footer">
+              <button class="btn-secondary" id="historyClear">清空历史</button>
+            </div>
+          </div>
+        </div>
 
         <!-- 手局结束弹窗 -->
         <div class="hand-result" id="handResult" style="display:none">
