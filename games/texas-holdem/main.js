@@ -271,6 +271,28 @@ async function startOnlineFlow(name, stack, blindsMode) {
     return;
   }
 
+  // 断线重连的 UI + 同步逻辑（对任意传输层都生效）
+  channel.onMessage((msg, from) => {
+    if (msg.type === "reconnecting") {
+      showReconnectToast(`网络中断，正在重连 (${msg.attempt}/${msg.maxAttempts})...`);
+    } else if (msg.type === "reconnected") {
+      showReconnectToast("已恢复连接", { success: true });
+    } else if (msg.type === "host_resumed") {
+      showReconnectToast("房主已恢复", { success: true });
+    } else if (msg.type === "peer_resumed") {
+      // 房主端：对应客户端重连，补发最新状态 + 私密底牌
+      if (isHost && game) {
+        const pid = msg.peerId;
+        channel.send({ type: "state", state: buildSnapshot() }, pid);
+        const ownCards = ownHoleCards[pid] || game.players.find((p) => p.id === pid)?.holeCards;
+        if (ownCards && ownCards.length > 0) {
+          channel.send({ type: "hole_cards", cards: ownCards }, pid);
+        }
+        showReconnectToast(`${game.players.find((p) => p.id === pid)?.name || "玩家"} 已重连`, { success: true });
+      }
+    }
+  });
+
   selfId = channel.getSelfId();
   root.getElementById("roomCodeDisplay").textContent = channel.getRoomCode();
 
@@ -1189,6 +1211,24 @@ function playActionSfx(action) {
     case "raise": sfx.raise(); break;
     case "allin": sfx.allin(); break;
   }
+}
+
+// 断线 / 重连 toast（节流：新 toast 替换旧的）
+let _reconnectToastEl = null;
+let _reconnectToastTimer = null;
+function showReconnectToast(text, { success = false, duration = 2200 } = {}) {
+  clearTimeout(_reconnectToastTimer);
+  if (_reconnectToastEl) _reconnectToastEl.remove();
+  const el = document.createElement("div");
+  el.className = "reconnect-toast" + (success ? " success" : " warn");
+  el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  _reconnectToastEl = el;
+  _reconnectToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => { el.remove(); if (_reconnectToastEl === el) _reconnectToastEl = null; }, 300);
+  }, duration);
 }
 
 // 新一轮下注开始时，只保留「弃牌」胶囊（弃牌状态贯穿整手）

@@ -22,46 +22,66 @@
 const port = parseInt(process.argv[2] || "8765", 10);
 const ROOT = new URL("../", import.meta.url).pathname;
 
-// room code → { host: ws | null, clients: Map<peerId, ws> }
+// 宽限期：WebSocket 断开后，保留会话以便同 peerId 重连
+const GRACE_MS = 30_000;
+
+// room code → {
+//   hostPeerId: string | null,
+//   peers: Map<peerId, { ws: WS | null, isHost, name, offlineAt: number | null }>
+// }
 const rooms = new Map();
 
-// ws → { room, peerId, isHost, name }
+// ws → { room, peerId }   快速反查
 const sessions = new WeakMap();
 
 function getOrCreateRoom(code) {
   let r = rooms.get(code);
   if (!r) {
-    r = { host: null, clients: new Map() };
+    r = { hostPeerId: null, peers: new Map() };
     rooms.set(code, r);
   }
   return r;
 }
 
-function safeSend(ws, obj) {
-  try { ws.send(JSON.stringify(obj)); } catch (_) {}
+// 清理过期的离线 peer（每次新消息触发一次，无需定时器）
+function sweepRoom(room) {
+  const now = Date.now();
+  for (const [pid, p] of room.peers.entries()) {
+    if (p.ws === null && p.offlineAt != null && now - p.offlineAt > GRACE_MS) {
+      const wasHost = pid === room.hostPeerId;
+      room.peers.delete(pid);
+      if (wasHost) {
+        room.hostPeerId = null;
+        // 房主永久掉线 → 通知所有客户端
+        for (const [, other] of room.peers) {
+          if (other.ws) safeSend(other.ws, { _from: "server", type: "disconnected" });
+          try { other.ws && other.ws.close(); } catch (_) {}
+        }
+        room.peers.clear();
+      } else {
+        // 客户端永久掉线 → 通知房主
+        const host = room.hostPeerId && room.peers.get(room.hostPeerId);
+        if (host?.ws) safeSend(host.ws, { _from: pid, type: "leave", playerId: pid });
+      }
+    }
+  }
 }
 
-function removeFromRoom(ws) {
+function safeSend(ws, obj) {
+  try { ws && ws.send(JSON.stringify(obj)); } catch (_) {}
+}
+
+// ws 断开：标记离线（保留 peer 记录至 GRACE_MS）
+function markOffline(ws) {
   const s = sessions.get(ws);
   if (!s) return;
   const room = rooms.get(s.room);
   if (!room) return;
-  if (s.isHost && room.host === ws) {
-    room.host = null;
-    // 通知所有客户端房主断开
-    for (const cws of room.clients.values()) {
-      safeSend(cws, { _from: "server", type: "disconnected" });
-      try { cws.close(); } catch (_) {}
-    }
-    room.clients.clear();
-  } else {
-    room.clients.delete(s.peerId);
-    // 通知房主：这位玩家离开
-    if (room.host) {
-      safeSend(room.host, { _from: s.peerId, type: "leave", playerId: s.peerId });
-    }
+  const peer = room.peers.get(s.peerId);
+  if (peer && peer.ws === ws) {
+    peer.ws = null;
+    peer.offlineAt = Date.now();
   }
-  if (!room.host && room.clients.size === 0) rooms.delete(s.room);
   sessions.delete(ws);
 }
 
@@ -139,34 +159,67 @@ const server = Bun.serve({
           return;
         }
         const room = getOrCreateRoom(msg.room);
-        if (msg.isHost) {
-          if (room.host) {
-            safeSend(ws, { _from: "server", type: "error", error: "该房间已有房主" });
-            try { ws.close(); } catch (_) {}
-            return;
+        sweepRoom(room);
+
+        const existing = room.peers.get(msg.peerId);
+        const wantResume = !!msg.resume && existing && existing.ws === null;
+
+        if (wantResume) {
+          // 宽限期内同 peerId 重连 → 恢复会话
+          existing.ws = ws;
+          existing.offlineAt = null;
+          if (typeof msg.name === "string" && msg.name) existing.name = msg.name;
+          sessions.set(ws, { room: msg.room, peerId: msg.peerId });
+          safeSend(ws, { _from: "server", type: "init_ok", peerId: msg.peerId, resumed: true });
+          // 通知房主此 peer 已恢复（非 host 重连时）
+          if (!existing.isHost) {
+            const host = room.hostPeerId && room.peers.get(room.hostPeerId);
+            if (host?.ws) safeSend(host.ws, { _from: msg.peerId, type: "peer_resumed", peerId: msg.peerId });
+          } else {
+            // host 重连 → 通知所有客户端
+            for (const [pid, p] of room.peers) {
+              if (pid !== msg.peerId && p.ws) {
+                safeSend(p.ws, { _from: "server", type: "host_resumed" });
+              }
+            }
           }
-          room.host = ws;
+          return;
+        }
+
+        // 新会话（或占位冲突）
+        if (msg.isHost) {
+          if (room.hostPeerId && room.peers.has(room.hostPeerId)) {
+            const curHost = room.peers.get(room.hostPeerId);
+            if (curHost.ws) {
+              safeSend(ws, { _from: "server", type: "error", error: "该房间已有房主" });
+              try { ws.close(); } catch (_) {}
+              return;
+            }
+          }
+          room.hostPeerId = msg.peerId;
         } else {
-          if (room.clients.has(msg.peerId)) {
+          if (existing && existing.ws) {
             safeSend(ws, { _from: "server", type: "error", error: "peerId 冲突" });
             try { ws.close(); } catch (_) {}
             return;
           }
-          room.clients.set(msg.peerId, ws);
         }
-        sessions.set(ws, {
-          room: msg.room, peerId: msg.peerId,
-          isHost: !!msg.isHost, name: msg.name || "",
+        room.peers.set(msg.peerId, {
+          ws, isHost: !!msg.isHost, name: msg.name || "", offlineAt: null,
         });
+        sessions.set(ws, { room: msg.room, peerId: msg.peerId });
         safeSend(ws, { _from: "server", type: "init_ok", peerId: msg.peerId });
-        // 通知房主有新客户端加入
-        if (!msg.isHost && room.host) {
-          safeSend(room.host, {
-            _from: msg.peerId,
-            type: "hello",
-            name: msg.name || "访客",
-            peerId: msg.peerId,
-          });
+        // 通知房主有新客户端加入（仅新 join）
+        if (!msg.isHost && room.hostPeerId) {
+          const host = room.peers.get(room.hostPeerId);
+          if (host?.ws) {
+            safeSend(host.ws, {
+              _from: msg.peerId,
+              type: "hello",
+              name: msg.name || "访客",
+              peerId: msg.peerId,
+            });
+          }
         }
         return;
       }
@@ -174,24 +227,31 @@ const server = Bun.serve({
       // 后续帧：转发
       const room = rooms.get(sess.room);
       if (!room) return;
+      sweepRoom(room);
+
+      const selfPeer = room.peers.get(sess.peerId);
+      if (!selfPeer) return;
 
       const payload = msg.payload ?? msg;
       const to = msg.to || null;
       const tagged = { ...payload, _from: sess.peerId };
 
-      if (sess.isHost) {
+      if (selfPeer.isHost) {
         if (to) {
-          const target = room.clients.get(to);
-          if (target) safeSend(target, tagged);
+          const target = room.peers.get(to);
+          if (target?.ws) safeSend(target.ws, tagged);
         } else {
-          for (const cws of room.clients.values()) safeSend(cws, tagged);
+          for (const [pid, p] of room.peers) {
+            if (pid !== sess.peerId && p.ws) safeSend(p.ws, tagged);
+          }
         }
-      } else {
-        if (room.host) safeSend(room.host, tagged);
+      } else if (room.hostPeerId) {
+        const host = room.peers.get(room.hostPeerId);
+        if (host?.ws) safeSend(host.ws, tagged);
       }
     },
     close(ws) {
-      removeFromRoom(ws);
+      markOffline(ws);
     },
   },
 });

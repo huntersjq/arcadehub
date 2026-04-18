@@ -190,6 +190,11 @@ export class PeerChannel {
 //   A) 本地 LAN：scripts/lan-server.js（Bun），同源 /lan
 //   B) 公网：scripts/relay-worker.js（Cloudflare Workers + Durable Objects）
 //      通过构造参数 relayUrl 指定（例如 wss://arcadehub-relay.xxx.workers.dev/lan）
+//
+// 断线重连：服务器保留 30s 宽限期，客户端以相同 peerId + resume:true 重发 init 即可恢复。
+// UI 会收到合成事件 {type:"reconnecting"|"reconnected"}，以及最终的 {type:"disconnected"}。
+const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000]; // 共 5 次尝试
+
 export class LanChannel {
   constructor({ roomCode, isHost, name, relayUrl }) {
     this.isHost = !!isHost;
@@ -200,7 +205,11 @@ export class LanChannel {
     this.ws = null;
     this.listeners = [];
     this.closed = false;
+    this._opened = false;
     this._pendingSend = [];
+    this._reconnectTimer = null;
+    this._reconnecting = false;
+    this._attempt = 0;
   }
 
   _buildUrl() {
@@ -219,12 +228,18 @@ export class LanChannel {
   }
 
   async open() {
-    const url = this._buildUrl();
+    await this._connect({ resume: false });
+    this._opened = true;
+  }
 
-    await new Promise((resolve, reject) => {
+  // 底层单次连接 + init 握手。抛错由调用方处理（首次抛到 open()，重连抛到 _scheduleReconnect）。
+  _connect({ resume }) {
+    const url = this._buildUrl();
+    return new Promise((resolve, reject) => {
       let settled = false;
       const ws = new WebSocket(url);
       this.ws = ws;
+
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
@@ -242,6 +257,7 @@ export class LanChannel {
           isHost: this.isHost,
           peerId: this.selfId,
           name: this.name,
+          resume: !!resume,
         }));
       });
 
@@ -252,20 +268,23 @@ export class LanChannel {
           if (data.type === "init_ok") {
             settled = true;
             clearTimeout(timer);
-            // 发出 pending 消息
+            // flush pending sends
             for (const [msg, to] of this._pendingSend) this._rawSend(msg, to);
             this._pendingSend = [];
+            if (data.resumed) {
+              this._dispatch({ type: "reconnected" }, "server");
+            }
             resolve();
             return;
           }
           if (data.type === "error") {
             settled = true;
             clearTimeout(timer);
-            reject(new Error(data.error || "LAN 服务器拒绝连接"));
+            reject(new Error(data.error || "中继服务器拒绝连接"));
             return;
           }
         }
-        // 普通转发
+        // 普通消息 → 转发给 listeners
         const from = data._from || null;
         const { _from, ...payload } = data;
         for (const cb of this.listeners) cb(payload, from);
@@ -275,22 +294,54 @@ export class LanChannel {
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          reject(new Error("LAN 服务器连接被关闭"));
+          reject(new Error("中继服务器连接被关闭"));
           return;
         }
-        if (!this.closed) {
-          this._dispatch({ type: "disconnected" }, "server");
-        }
+        if (this.closed) return; // 主动关闭
+        // 意外掉线：尝试自动重连
+        this._scheduleReconnect();
       });
 
       ws.addEventListener("error", () => {
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          reject(new Error("LAN 服务器连接失败（ws://host/lan）"));
+          reject(new Error("中继服务器连接失败"));
         }
       });
     });
+  }
+
+  _scheduleReconnect() {
+    if (this.closed) return;
+    if (this._attempt >= RECONNECT_DELAYS_MS.length) {
+      // 重试用尽
+      this._reconnecting = false;
+      this._dispatch({ type: "disconnected" }, "server");
+      return;
+    }
+    const delay = RECONNECT_DELAYS_MS[this._attempt];
+    this._attempt += 1;
+    if (!this._reconnecting) {
+      this._reconnecting = true;
+      this._dispatch({
+        type: "reconnecting",
+        attempt: this._attempt,
+        maxAttempts: RECONNECT_DELAYS_MS.length,
+      }, "server");
+    }
+    clearTimeout(this._reconnectTimer);
+    this._reconnectTimer = setTimeout(() => {
+      if (this.closed) return;
+      this._connect({ resume: true })
+        .then(() => {
+          this._reconnecting = false;
+          this._attempt = 0;
+        })
+        .catch(() => {
+          this._scheduleReconnect();
+        });
+    }, delay);
   }
 
   getRoomCode() { return this.roomCode; }
@@ -319,6 +370,7 @@ export class LanChannel {
 
   close() {
     this.closed = true;
+    clearTimeout(this._reconnectTimer);
     try { this.ws && this.ws.close(); } catch (_) {}
   }
 }

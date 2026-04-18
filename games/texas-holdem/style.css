@@ -1583,6 +1583,35 @@ html, body {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── 断线重连 Toast ───────────────────── */
+.reconnect-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+  z-index: 250;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(.2,.8,.2,1);
+  pointer-events: none;
+}
+.reconnect-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.reconnect-toast.warn {
+  background: linear-gradient(135deg, #7f1d1d, #dc2626);
+  color: #fff;
+}
+.reconnect-toast.success {
+  background: linear-gradient(135deg, #166534, #22c55e);
+  color: #fff;
+}
+
 /* ── 里程碑 Toast ───────────────────── */
 .milestone-toast {
   position: fixed;

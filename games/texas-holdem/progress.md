@@ -44,6 +44,7 @@
 | **局域网联机（WebSocket 中继，无需公网）** | ✅ 完成 |
 | **GitHub Pages 部署（自动发布前端）** | ✅ 完成 |
 | **Cloudflare Workers 公网中继（Durable Objects）** | ✅ 完成 |
+| **断线重连（客户端退避 + 服务器 30s 宽限期）** | ✅ 完成 |
 | 跨设备联机真机测试（PeerJS 公网） | ⏳ 待验证 |
 
 ## 已完成模块明细
@@ -235,6 +236,7 @@ LAN: http://192.168.1.9:8765/
 - （2026-04-18 第 2 轮：音效 / 终生战绩 + 里程碑 / hub 成就接入 / 战绩统计 tab）
 - （2026-04-18 第 3 轮：LAN 联机模式，Bun WebSocket 中继服务器 + `LanChannel` + 新 tab，修复客户端 `onHumanAction` 早退 bug）
 - （2026-04-18 第 4 轮：GitHub Pages 前端自动部署 + Cloudflare Workers Durable Objects 公网中继；`LanChannel` 支持自定义中继地址；`DEPLOY.md` 部署指南）
+- （2026-04-18 第 5 轮：断线重连。客户端指数退避 500ms/1s/2s/4s/8s 五次重试；服务器保留会话 30s 宽限期；`resume:true` init 帧恢复；`peer_resumed`/`host_resumed` 事件；房主自动补发状态 + 底牌；红/绿 toast 提示）
 
 ---
 
