@@ -25,6 +25,9 @@ import {
   applyTheme, getTheme, setTheme, getDeckMode, setDeckMode,
   THEMES, DECK_MODES, THEME_LABELS, DECK_LABELS,
 } from "./ui/theme.js";
+import {
+  getPreAction, setPreAction, clearPreAction, resolvePreAction, isOneShot,
+} from "./ui/preact.js";
 
 // ── 全局状态 ──
 
@@ -106,6 +109,7 @@ function init() {
   bindLobbyEvents();
   bindTableUIEvents();
   bindSettingsPopup();
+  bindPreActionBar();
 
   showScreen("lobby");
 }
@@ -705,6 +709,8 @@ function handleAuthoritativeEvent(ev) {
       for (const p of game.players) handStartStacks[p.id] = p.stack;
     }
     pendingHandResult = null;
+    // 每手开新都清掉 pre-action（包括 call-down 这种粘附型）
+    clearPreAction();
     tableView?.showDealerLog(`第 ${ev.handNumber} 手 · 盲注 ${ev.smallBlind}/${ev.bigBlind}`);
   } else if (ev.type === "deal_hole") {
     // 本地 / hotseat 下：真人玩家都记录自己的底牌
@@ -844,6 +850,40 @@ function reRenderTable() {
   } catch (_) {}
 }
 
+// ── 提前行动 ──
+
+function bindPreActionBar() {
+  const bar = document.getElementById("preActionBar");
+  if (!bar) return;
+  bar.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".pre-pill");
+    if (!btn) return;
+    const next = btn.dataset.pre;
+    const cur = getPreAction();
+    setPreAction(cur === next ? null : next);
+    refreshPreActionBar();
+  });
+}
+
+// 在 NOT-my-turn 期间显示 pre-action bar；轮到自己时隐藏
+function refreshPreActionBar() {
+  const bar = document.getElementById("preActionBar");
+  if (!bar) return;
+  // 状态源：房主端用 game，客户端用 latestSnapshot
+  const stage = game?.stage || latestSnapshot?.stage;
+  const players = game?.players || latestSnapshot?.players || [];
+  const actionIndex = (game?.actionIndex ?? latestSnapshot?.actionIndex) ?? -1;
+  const actor = actionIndex >= 0 ? players[actionIndex] : null;
+  const inHand = stage && stage !== STAGE.IDLE && stage !== STAGE.HAND_OVER && stage !== STAGE.GAME_OVER;
+  const myTurn = actor && shouldShowControlsForActor(actor);
+  const visible = inHand && !myTurn;
+  bar.style.display = visible ? "" : "none";
+  const cur = getPreAction();
+  for (const btn of bar.querySelectorAll(".pre-pill")) {
+    btn.classList.toggle("armed", btn.dataset.pre === cur);
+  }
+}
+
 // 把当前 deadline 推给 TableView（rAF 驱动 SVG 圆环）
 function applyActionDeadlineToTable() {
   if (!tableView) return;
@@ -976,6 +1016,7 @@ function renderAuthoritative() {
   snap.actionBubbles = lastActionBubbles;
   tableView.render(snap, currentPerspectiveId());
   applyActionDeadlineToTable();
+  refreshPreActionBar();
 
   // 行动条
   const idx = game.actionIndex;
@@ -1021,6 +1062,26 @@ async function showControlsForActor(actor) {
     controls._lastShownPid = actor.id;
   }
 
+  // 提前行动（pre-action）：如果玩家事先勾了"过/弃"或"跟到底"，
+  // 直接代为执行，不显示动作条；一次性的（fold-or-check）执行后清掉。
+  const preType = getPreAction();
+  const preAction = resolvePreAction(ctx);
+  if (preAction) {
+    controls.hide();
+    if (isOneShot(preType)) clearPreAction();
+    refreshPreActionBar();
+    // 一点点延时让玩家感知"自动执行"，并防止跟主线 render 撞车
+    setTimeout(() => {
+      if (!game) return;
+      if (game.actionIndex < 0) return;
+      const cur = game.players[game.actionIndex];
+      if (!cur || cur.id !== actor.id) return;
+      const r = game.applyAction(actor.id, preAction);
+      if (r?.ok) pumpEvents();
+    }, 220);
+    return;
+  }
+
   const opponents = Math.max(1, game.inHandPlayers().length - 1);
   controls.show(ctx, hole, {
     community: game.community.slice(),
@@ -1056,6 +1117,7 @@ function renderMirror() {
   latestSnapshot.actionBubbles = lastActionBubbles;
   tableView.render(latestSnapshot, selfId);
   applyActionDeadlineToTable();
+  refreshPreActionBar();
 
   // 如果轮到自己 → 显示操作条
   const actIdx = latestSnapshot.actionIndex;
@@ -1413,6 +1475,7 @@ function cleanupGame() {
   clearActionTimeout();
   currentActionDeadline = null;
   _resetPump();
+  clearPreAction();
   if (channel) { try { channel.close(); } catch (_) {} }
   channel = null;
   game = null;

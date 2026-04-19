@@ -758,6 +758,48 @@ body[data-theme="blackgold"] .card.back::before {
   border-radius: 50%;
 }
 
+/* ── 提前行动（pre-action）pill bar ── */
+.pre-action-bar {
+  position: absolute;
+  bottom: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(15, 18, 28, 0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+.pre-action-bar .pre-action-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--muted, #94a3b8);
+  margin-right: 4px;
+}
+.pre-pill {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+.pre-pill:hover { background: rgba(255,255,255,0.10); }
+.pre-pill.armed {
+  color: #0a0a0f;
+  background: var(--gold, #f5c518);
+  border-color: var(--gold-dark, #b28e08);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 12px rgba(245,197,24,0.4);
+}
+
 /* ── 行动倒计时圆环（贴在 active 座位上） ── */
 .seat .countdown-ring {
   position: absolute;
