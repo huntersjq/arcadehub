@@ -1474,11 +1474,12 @@ body[data-theme="blackgold"] .card.back::before {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.7rem 0.8rem;          /* 上下增加，避免高亮卡 -3px translate 触顶 */
   background: rgba(34, 197, 94, 0.08);
   border: 1px solid rgba(34, 197, 94, 0.2);
   border-radius: 10px;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;              /* 拉开和下方 winner 行的距离，让 gold halo 不糊 */
+  overflow: visible;
 }
 .result-board-label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
 .result-board-cards { display: flex; gap: 6px; }
@@ -1496,12 +1497,13 @@ body[data-theme="blackgold"] .card.back::before {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.85rem 0.85rem;    /* 上下扩到 0.85rem，给 highlight 卡 -3px 留出空间 */
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.7rem;       /* 行间距加大，winner 金光不糊到上一行 */
   transition: border-color 0.2s;
+  overflow: visible;            /* 让 highlight 卡的 box-shadow 不被 row 裁切 */
 }
 .result-row.winner {
   background: rgba(245, 197, 24, 0.1);

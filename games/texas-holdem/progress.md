@@ -197,9 +197,11 @@ LAN: http://192.168.1.9:8765/
 - ✨ **Hub 成就接入**：向 `hub/achievements.js` 新增 6 条 texas-holdem 专属成就（All In / Card Shark / Poker Pro / Full House / Four of a Kind / Royal Flush），读取 `holdem_stats` 解锁。
 - ✨ **Web Audio 音效**：过程化合成的发牌 / 过牌 / 跟注 / 加注 / 全下 / 弃牌 / 翻牌 / 赢家 音效，零外部资源，可一键静音（状态持久化）。
 
-## 2026-04-19 优化迭代（来自 wp.apk 拆解后的 5-PR 收割）
+## 2026-04-19 优化迭代（来自 wp.apk 拆解后的 9-PR 收割）
 
 > 完整方案见 `OPTIMIZATION_PLAN.md`（370 行）
+
+### 第一波（5 PR）
 
 | PR | 主题 | 改动 | 验证 |
 |---|---|---|---|
@@ -209,7 +211,16 @@ LAN: http://192.168.1.9:8765/
 | #4 | `feat(holdem): action countdown ring + 15s auto-fold` | 引擎事件加 `deadline`；TableView SVG 圆环 + rAF；主机端超时 auto check/fold；颜色档绿→黄→红 | 烟雾测：超时玩家被 auto-fold |
 | #5 | `refactor(holdem): publish engine as @arcadehub/holdem-engine` | `engine/package.json` v0.1.0 + `index.js` 公共 API + README + 26 条出口测试；引擎已可被外部 import | 110 用例 232ms |
 
-**5 个 PR 后**：5 个 spec 文件 / **110 单元测试** / 232 ms / 0 console error / 全部 commit 落在 main。
+### 第二波（4 PR · 视觉 + 节奏）
+
+| PR | 主题 | 改动 | 验证 |
+|---|---|---|---|
+| #6 | `feat(holdem): WePoker-inspired 4-color deck + 3 themes` | `ui/theme.js` 偏好；CSS `body[data-theme/data-deck]` 切换；4 色花色（♣绿 ♦蓝）+ 经典绿/午夜蓝/黑金 三主题；premium card paper-grain + 3 套牌背 pattern；⚙️ 设置弹窗 | 三主题视觉切换通过 |
+| #7 | `feat(holdem): 1.2s phase-transition breath` | 仿 wp.apk `GameRoundQueueManage.ROUND_DELAY`；main.js `_pumpQueue` + `_drainPump` drip-feed；阶段切换后 hold 1.2s 再发 next action_required；`deadline` 重打时间戳保证 15s 决策窗口 | 翻牌→转牌→河牌可见喘息 |
+| #8 | `feat(holdem): pre-action (fold-or-check / call-down)` | `ui/preact.js`；不轮到自己时显示 pill bar；arm 后到自己回合自动执行；fold-or-check 一次性、call-down 跨街粘附；新一手清掉 | 实测 call-down 直接跑完一手 |
+| #9 | `style(holdem): refine JQKA + enlarge settlement cards` | 脸牌不再用花体大字母，改用与数字牌一致的大花色 + 角标斜体衬线；结算 modal 卡牌 28→50px、modal 加宽 500→720px | 摊牌页 5 张公共牌大幅放大 |
+
+**总成果**：6 个 spec 文件 / **110 单元测试** / 232 ms / 0 console error。新代码 ~1800 行（含 PR #6-9 的 ~700 行）。
 
 ---
 
