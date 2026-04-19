@@ -2,7 +2,8 @@
 
 import { renderCardEl } from "./table.js";
 import { bestOfSeven } from "../engine/hand.js";
-import { monteCarloEquity, preflopStrength } from "../ai/bot.js";
+import { preflopStrength } from "../ai/equity-core.js";
+import { requestEquity } from "../ai/equity-client.js";
 
 const EQUITY_ITERATIONS = {
   preflop: 0,   // 翻前用快路径
@@ -164,19 +165,17 @@ export class Controls {
       return;
     }
 
-    // 翻后：蒙特卡洛（放到下一帧，避免阻塞按钮显示）
+    // 翻后：蒙特卡洛 → Web Worker（不阻塞主线程）
     const iterations = EQUITY_ITERATIONS[stage] || 200;
-    requestAnimationFrame(() => {
-      if (token !== this._equityToken) return;
-      try {
-        const eq = monteCarloEquity(hole, extras.community, opponents, iterations);
+    requestEquity({ holeCards: hole, community: extras.community, opponents, iterations })
+      .then((eq) => {
         if (token !== this._equityToken) return;
         this._applyEquityUI(eq);
-      } catch (_) {
+      })
+      .catch(() => {
         if (token !== this._equityToken) return;
         this.equityValueEl.textContent = "—";
-      }
-    });
+      });
   }
 
   _applyEquityUI(eq) {

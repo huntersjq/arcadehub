@@ -912,7 +912,7 @@ function scheduleAIIfNeeded() {
   if (game.stage === STAGE.HAND_OVER || game.stage === STAGE.SHOWDOWN || game.stage === STAGE.GAME_OVER) return;
 
   const delay = 900 + Math.random() * 600;
-  aiScheduleTimer = setTimeout(() => {
+  aiScheduleTimer = setTimeout(async () => {
     aiScheduleTimer = null;
     if (!game) return;
     const curIdx = game.actionIndex;
@@ -921,7 +921,18 @@ function scheduleAIIfNeeded() {
     if (!curActor || curActor.isHuman) return;
 
     const ctx = buildActionContextFromGame(curActor);
-    const action = decide(game, curActor, ctx);
+    let action;
+    try {
+      // decide() 现在是 async（蒙特卡洛胜率走 Web Worker）
+      action = await decide(game, curActor, ctx);
+    } catch (e) {
+      console.warn("[ai] decide failed, falling back:", e);
+      action = ctx.legalActions.includes("check") ? { type: "check" } : { type: "fold" };
+    }
+
+    // 异步等待期间游戏可能已结束 / 切换玩家 — 兜底校验
+    if (!game || game.actionIndex !== curIdx || game.players[curIdx]?.id !== curActor.id) return;
+
     const emoji = decideEmoji(action, 0.5);
     if (emoji) {
       tableView?.floatEmojiOver(curActor.id, emoji);
