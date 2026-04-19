@@ -1218,7 +1218,9 @@ function showHandResult() {
   const modal = root.getElementById("handResult");
   const body = root.getElementById("handResultBody");
   const title = root.getElementById("handResultTitle");
+  const boardSlot = root.getElementById("handResultBoard");
   body.replaceChildren();
+  boardSlot.replaceChildren();
 
   const reason = pendingHandResult.reason;
   title.textContent = reason === "uncontested" ? "对手弃牌，本手结束" : "摊牌结算";
@@ -1239,7 +1241,7 @@ function showHandResult() {
   const handMap = new Map();
   for (const h of showdownHands) handMap.set(h.id, h);
 
-  // 公共牌展示（摊牌场景）
+  // 公共牌展示（摊牌场景）— 挂到 header 区，与标题一体不滚动
   if (lastCommunityCards.length > 0 && reason !== "uncontested") {
     const boardWrap = document.createElement("div");
     boardWrap.className = "result-board";
@@ -1251,7 +1253,7 @@ function showHandResult() {
     boardCards.className = "result-board-cards";
     for (const c of lastCommunityCards) boardCards.appendChild(renderCardEl(c));
     boardWrap.appendChild(boardCards);
-    body.appendChild(boardWrap);
+    boardSlot.appendChild(boardWrap);
   }
 
   // 为每位参与玩家（未离桌）渲染一行
@@ -1273,8 +1275,12 @@ function showHandResult() {
     const hand = handMap.get(p.id);
     const isWinner = !!win;
 
+    const isSelf = p.id === selfId || (currentMode === "hotseat" && p.isHuman);
     const row = document.createElement("div");
-    row.className = "result-row" + (isWinner ? " winner" : "") + (p.folded ? " folded" : "");
+    row.className = "result-row"
+      + (isWinner ? " winner" : "")
+      + (isSelf ? " self" : "")
+      + (p.folded ? " folded" : "");
 
     // 玩家信息列
     const info = document.createElement("div");
@@ -1394,8 +1400,10 @@ function persistHandHistory(playersToShow, winnerMap, handMap) {
     handNumber,
     community: lastCommunityCards.slice(),
     reason: pendingHandResult?.reason || null,
+    selfId,                                             // 历史页用于高亮自己
     players: playersToShow.map((p) => {
       const hand = handMap.get(p.id);
+      const win = winnerMap.get(p.id);
       const holes = hand?.holeCards
         || revealedHoles[p.id]
         || ownHoleCards[p.id]
@@ -1406,8 +1414,11 @@ function persistHandHistory(playersToShow, winnerMap, handMap) {
         id: p.id,
         name: p.name,
         folded: !!p.folded,
-        rank: hand?.name || (p.folded ? "弃牌" : null),
+        rank: hand?.name || win?.rank || (p.folded ? "弃牌" : null),
         holeCards: holes.slice(),
+        bestCards: (hand?.cards || win?.cards || []).slice(), // 摊牌的最佳 5 张（金边高亮用）
+        isWinner: !!win,
+        isSelf: p.id === selfId || (currentMode === "hotseat" && p.isHuman),
         delta: p.stack - startStack,
       };
     }),

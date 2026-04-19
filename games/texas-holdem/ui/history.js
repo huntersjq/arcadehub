@@ -165,34 +165,92 @@ export class HandHistory {
     detail.className = "history-entry-detail";
     detail.addEventListener("click", (e) => e.stopPropagation());
 
-    for (const p of entry.players) {
+    // 顶部公共牌条（与结算 modal 一致）
+    if (entry.community && entry.community.length > 0) {
+      const board = document.createElement("div");
+      board.className = "history-detail-board";
+      const label = document.createElement("span");
+      label.className = "history-detail-board-label";
+      label.textContent = "公共牌";
+      board.appendChild(label);
+      const cards = document.createElement("div");
+      cards.className = "history-detail-board-cards";
+      for (const c of entry.community) cards.appendChild(renderCardEl(c));
+      board.appendChild(cards);
+      detail.appendChild(board);
+    }
+
+    // 排序：赢家优先，弃牌靠后；自己永远在赢家之前展示（如果不是赢家自己也置顶）
+    const sorted = entry.players.slice().sort((a, b) => {
+      const aWin = a.isWinner ? 1 : 0;
+      const bWin = b.isWinner ? 1 : 0;
+      if (aWin !== bWin) return bWin - aWin;
+      const aSelf = a.isSelf ? 1 : 0;
+      const bSelf = b.isSelf ? 1 : 0;
+      if (aSelf !== bSelf) return bSelf - aSelf;
+      const aFold = a.folded ? 1 : 0;
+      const bFold = b.folded ? 1 : 0;
+      return aFold - bFold;
+    });
+
+    for (const p of sorted) {
       const row = document.createElement("div");
-      row.className = "history-detail-row";
+      row.className = "history-detail-row"
+        + (p.isWinner ? " winner" : "")
+        + (p.isSelf ? " self" : "")
+        + (p.folded ? " folded" : "");
 
-      const name = document.createElement("span");
-      name.className = "name";
+      // 信息列
+      const info = document.createElement("div");
+      info.className = "history-detail-info";
+      const name = document.createElement("div");
+      name.className = "history-detail-name";
       name.textContent = p.name;
-      row.appendChild(name);
-
-      const rank = document.createElement("span");
-      rank.className = "rank";
+      info.appendChild(name);
+      const rank = document.createElement("div");
+      rank.className = "history-detail-rank";
       rank.textContent = p.folded ? "弃牌" : (p.rank || "—");
-      row.appendChild(rank);
+      info.appendChild(rank);
+      const d = p.delta || 0;
+      const deltaSpan = document.createElement("div");
+      deltaSpan.className = "history-detail-delta " + (d > 0 ? "gain" : d < 0 ? "loss" : "flat");
+      deltaSpan.textContent = d > 0 ? `+${d.toLocaleString()}`
+        : d < 0 ? d.toLocaleString()
+        : "±0";
+      info.appendChild(deltaSpan);
+      row.appendChild(info);
 
+      // 卡牌列：底牌 → 最佳 5 张
+      const cardsWrap = document.createElement("div");
+      cardsWrap.className = "history-detail-cards";
+
+      const holeGroup = document.createElement("div");
+      holeGroup.className = "history-detail-holes";
       if (p.holeCards && p.holeCards.length > 0) {
-        const holes = document.createElement("span");
-        holes.className = "holes";
-        for (const c of p.holeCards) holes.appendChild(renderCardEl(c));
-        row.appendChild(holes);
+        for (const c of p.holeCards) holeGroup.appendChild(renderCardEl(c));
+      }
+      cardsWrap.appendChild(holeGroup);
+
+      // 摊牌且非弃牌：箭头 + best5（best5 中含 hole 的卡用金边）
+      if (!p.folded && p.bestCards && p.bestCards.length > 0) {
+        const sep = document.createElement("span");
+        sep.className = "history-detail-sep";
+        sep.textContent = "→";
+        cardsWrap.appendChild(sep);
+
+        const bestGroup = document.createElement("div");
+        bestGroup.className = "history-detail-best";
+        const bestSet = new Set(p.bestCards);
+        // 优先用 best5 中的卡 + 高亮
+        for (const c of p.bestCards) {
+          const el = renderCardEl(c);
+          el.classList.add("highlight");
+          bestGroup.appendChild(el);
+        }
+        cardsWrap.appendChild(bestGroup);
       }
 
-      const d = p.delta || 0;
-      const deltaSpan = document.createElement("span");
-      deltaSpan.style.fontWeight = "700";
-      deltaSpan.style.color = d > 0 ? "#ef4444" : d < 0 ? "#22c55e" : "var(--muted)";
-      deltaSpan.textContent = `${d > 0 ? "+" : ""}${d.toLocaleString()}`;
-      row.appendChild(deltaSpan);
-
+      row.appendChild(cardsWrap);
       detail.appendChild(row);
     }
     return detail;

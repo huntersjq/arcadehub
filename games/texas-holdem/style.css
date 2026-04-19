@@ -484,8 +484,8 @@ html, body {
 /* 左上角：点数（大）+ 花色（小） */
 .card .card-corner {
   position: absolute;
-  top: 3px;
-  left: 5px;
+  top: 5px;                  /* 留足头部空间，杜绝 cap-height 顶到 overflow */
+  left: 6px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -493,9 +493,10 @@ html, body {
   z-index: 2;
 }
 .card .corner-rank {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 900;
   letter-spacing: -0.04em;
+  line-height: 1.1;          /* 让 cap-height 在文本框内有上方喘息 */
 }
 .card .corner-suit {
   font-size: 0.9rem;
@@ -524,14 +525,10 @@ html, body {
 
 /* J / Q / K / A：保留 .face class 用于金边视觉，但不再渲染中央花体字母
  *   —— 与 WePoker 一致，脸牌 = 数字牌一样的中央大花色 + 角标字母
- *   .face-letter 元素已从 renderCardEl 移除；这里历史样式保留为空 */
-/* 角标 J/Q/K/A 用斜体衬线增加身份感（小幅 typography 升级） */
-.card.face .corner-rank {
-  font-family: "Playfair Display", "Georgia", serif;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
+ *   不再用 Playfair Display（未加载，浏览器 fallback 到 Georgia 的 cap-height
+ *   过高会顶出 .card 的 overflow:hidden）；统一用系统 stack，保证字形度量一致 */
+.card .corner-rank { line-height: 1.05; }     /* 给字形上下各留 2.5% 喘息 */
+.card.face .corner-rank { font-weight: 900; }  /* 脸牌仅靠粗细 + 金边区分 */
 
 /* 所有 face 牌显示金色细边框，A 更显眼 */
 .card:not(.back)::before {
@@ -1428,23 +1425,69 @@ body[data-theme="blackgold"] .card.back::before {
   backdrop-filter: blur(4px);
 }
 
+/* 三段式结算 modal：
+ *   ┌──────────────────────┐
+ *   │ 标题 (固定顶部)       │ flex 0 0 auto
+ *   ├──────────────────────┤
+ *   │ 公共牌 (sticky 在中段)│
+ *   │ 玩家行 1              │ flex 1 1 auto, overflow-y: auto
+ *   │ 玩家行 2              │
+ *   │ ...                   │
+ *   ├──────────────────────┤
+ *   │ 下一手 (固定底部)     │ flex 0 0 auto
+ *   └──────────────────────┘
+ */
 .hand-result-card {
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
-  padding: 1.6rem 1.8rem;
+  padding: 0;                       /* 内部三段各自负责 padding */
   min-width: min(560px, 94vw);
   max-width: 720px;
   max-height: 88vh;
-  overflow-y: auto;
+  overflow: hidden;                 /* card 自身不滚 */
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
 }
 
-.hand-result-card h3 {
+/* 头部容器：标题 + 公共牌一体不滚动 */
+.hand-result-card .hand-result-header {
+  flex: 0 0 auto;
+  background: var(--panel);
+  padding: 1.4rem 1.8rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.hand-result-card .hand-result-header h3 {
   text-align: center;
-  margin-bottom: 1rem;
   font-size: 1.35rem;
   color: var(--gold);
+  margin: 0 0 1rem;
+  padding: 0;
+}
+.hand-result-card .hand-result-header #handResultBoard:empty { display: none; }
+/* uncontested 场景下没有公共牌，调整 padding-bottom */
+.hand-result-card .hand-result-header:has(#handResultBoard:empty) {
+  padding-bottom: 0.4rem;
+}
+
+/* 中段：唯一可滚的容器 */
+.hand-result-card #handResultBody {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem 1.8rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 下一手按钮：固定在 modal 底部 */
+.hand-result-card #nextHandBtn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.75rem 1.6rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-radius: 0 0 16px 16px;
+  width: 100%;
 }
 
 .winner-row {
@@ -1469,20 +1512,19 @@ body[data-theme="blackgold"] .card.back::before {
 .showdown-row .cards-row { display: flex; gap: 2px; }
 .showdown-row .card { width: 24px; height: 34px; font-size: 0.55rem; }
 
-/* 公共牌展示条 */
+/* 公共牌展示条 — 现在挂在 header 里，与标题一体，不需 sticky */
 .result-board {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.7rem 0.8rem;          /* 上下增加，避免高亮卡 -3px translate 触顶 */
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  padding: 0.7rem 0.8rem;
+  background: linear-gradient(180deg, rgba(34,197,94,0.18), rgba(34,197,94,0.08));
+  border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 10px;
-  margin-bottom: 1rem;              /* 拉开和下方 winner 行的距离，让 gold halo 不糊 */
   overflow: visible;
 }
 .result-board-label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
-.result-board-cards { display: flex; gap: 6px; }
+.result-board-cards { display: flex; gap: 10px; }
 .result-board-cards .card {
   width: 50px; height: 70px;
   border-radius: 7px;
@@ -1491,24 +1533,43 @@ body[data-theme="blackgold"] .card.back::before {
 .result-board-cards .card .corner-suit { font-size: 0.85rem; }
 .result-board-cards .card .main-suit { font-size: 1.65rem; }
 
-/* 玩家结算行：横向布局（信息 | 底牌 → 最佳 5 张） */
+/* 玩家结算行：横向布局（信息 | 底牌 → 最佳 5 张）
+ * 固定 min-height 比卡牌高 + 上下给足空间，避免 cards 被行边缘视觉切顶 */
 .result-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0.85rem 0.85rem;    /* 上下扩到 0.85rem，给 highlight 卡 -3px 留出空间 */
+  padding: 1rem 0.95rem;        /* 上下 1rem，给 64px 卡 + highlight -3px translate 留足 */
+  min-height: 86px;              /* 64 卡 + 2*11 padding ≈ 86，强制不缩 */
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  margin-bottom: 0.7rem;       /* 行间距加大，winner 金光不糊到上一行 */
+  margin-bottom: 0.7rem;
   transition: border-color 0.2s;
-  overflow: visible;            /* 让 highlight 卡的 box-shadow 不被 row 裁切 */
+  overflow: visible;
 }
 .result-row.winner {
   background: rgba(245, 197, 24, 0.1);
   border-color: rgba(245, 197, 24, 0.4);
   box-shadow: 0 0 12px -2px rgba(245, 197, 24, 0.25);
+}
+/* 玩家自己的行：青蓝色边框 + 淡蓝色背景，与金色 winner 区分 */
+.result-row.self:not(.winner) {
+  background: rgba(56, 189, 248, 0.10);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 10px -2px rgba(56, 189, 248, 0.30);
+}
+/* 既是赢家又是自己 → 同时挂 winner + self；金边为主，加一圈青蓝外光 */
+.result-row.winner.self {
+  box-shadow:
+    0 0 12px -2px rgba(245, 197, 24, 0.35),
+    0 0 0 2px rgba(56, 189, 248, 0.55) inset;
+}
+.result-row.self .result-name::before {
+  content: "你 · ";
+  color: rgb(56, 189, 248);
+  font-weight: 800;
 }
 .result-row.folded { opacity: 0.6; }
 
@@ -1537,11 +1598,12 @@ body[data-theme="blackgold"] .card.back::before {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.85rem;             /* 拉开 holes 和 best5 之间的空间 */
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: visible;       /* 让 highlight 卡的 -3px translate 不被裁 */
 }
-.result-holes, .result-best { display: flex; gap: 4px; flex: 0 0 auto; }
+.result-holes, .result-best { display: flex; gap: 8px; flex: 0 0 auto; }
 .result-cards-wrap .card {
   width: 46px; height: 64px;
   border-radius: 6px;
@@ -1729,22 +1791,99 @@ body[data-theme="blackgold"] .card.back::before {
   border-top: 1px dashed rgba(255,255,255,0.08);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
+/* 公共牌条 — 与结算 modal 一致 */
+.history-detail-board {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: linear-gradient(180deg, rgba(34,197,94,0.18), rgba(34,197,94,0.08));
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 8px;
+}
+.history-detail-board-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+.history-detail-board-cards { display: flex; gap: 6px; }
+.history-detail-board-cards .card {
+  width: 36px; height: 50px; border-radius: 5px;
+}
+.history-detail-board-cards .card .corner-rank { font-size: 0.85rem; }
+.history-detail-board-cards .card .corner-suit { font-size: 0.65rem; }
+.history-detail-board-cards .card .main-suit { font-size: 1.15rem; }
+
+/* 玩家行 — 与结算 modal 一致：信息列 + 底牌 → 最佳 5 张 */
 .history-detail-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
   flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.65rem 0.7rem;
+  min-height: 64px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: visible;
 }
-.history-detail-row .name { min-width: 70px; font-weight: 700; }
-.history-detail-row .rank { color: var(--muted); min-width: 64px; }
-.history-detail-row .holes { display: flex; gap: 2px; }
-.history-detail-row .holes .card { width: 22px; height: 30px; border-radius: 3px; }
-.history-detail-row .holes .card .corner-rank { font-size: 0.75rem; }
-.history-detail-row .holes .card .corner-suit { font-size: 0.55rem; }
-.history-detail-row .holes .card .main-suit { font-size: 1rem; }
+.history-detail-row.winner {
+  background: rgba(245, 197, 24, 0.10);
+  border-color: rgba(245, 197, 24, 0.4);
+  box-shadow: 0 0 10px -2px rgba(245, 197, 24, 0.25);
+}
+.history-detail-row.self:not(.winner) {
+  background: rgba(56, 189, 248, 0.10);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 8px -2px rgba(56, 189, 248, 0.30);
+}
+.history-detail-row.winner.self {
+  box-shadow:
+    0 0 12px -2px rgba(245, 197, 24, 0.35),
+    0 0 0 2px rgba(56, 189, 248, 0.55) inset;
+}
+.history-detail-row.self .history-detail-name::before {
+  content: "你 · ";
+  color: rgb(56, 189, 248);
+  font-weight: 800;
+}
+.history-detail-row.folded { opacity: 0.55; }
+
+.history-detail-info {
+  display: flex; flex-direction: column;
+  gap: 2px; min-width: 80px; flex: 0 0 auto;
+}
+.history-detail-name { font-weight: 700; font-size: 0.92rem; color: var(--text-main, #f0f0f0); }
+.history-detail-rank { font-size: 0.78rem; color: var(--gold); font-weight: 600; }
+.history-detail-row.folded .history-detail-rank { color: var(--muted); }
+.history-detail-delta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.history-detail-delta.gain { color: #ef4444; }
+.history-detail-delta.loss { color: #22c55e; }
+.history-detail-delta.flat { color: var(--muted); }
+
+.history-detail-cards {
+  display: flex; align-items: center;
+  gap: 0.65rem;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.history-detail-holes,
+.history-detail-best { display: flex; gap: 5px; flex: 0 0 auto; }
+.history-detail-cards .card {
+  width: 36px; height: 50px; border-radius: 5px;
+}
+.history-detail-cards .card .corner-rank { font-size: 0.85rem; }
+.history-detail-cards .card .corner-suit { font-size: 0.65rem; }
+.history-detail-cards .card .main-suit { font-size: 1.15rem; }
+.history-detail-cards .card.highlight {
+  box-shadow: 0 0 0 1.5px var(--gold), 0 0 8px rgba(245,197,24,0.45);
+  transform: translateY(-2px);
+}
+.history-detail-sep { color: var(--muted); font-size: 0.85rem; padding: 0 2px; }
 .history-footer {
   display: flex;
   justify-content: flex-end;
