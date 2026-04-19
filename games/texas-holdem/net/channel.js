@@ -272,7 +272,15 @@ export class LanChannel {
             for (const [msg, to] of this._pendingSend) this._rawSend(msg, to);
             this._pendingSend = [];
             if (data.resumed) {
+              // 服务端支持 resume（Bun / Cloudflare Workers）
               this._dispatch({ type: "reconnected" }, "server");
+            } else if (resume) {
+              // resume 失败（服务器没有保留状态，典型：Deno Deploy 无持久 session）
+              // 当前被当作新 join，主动请求状态同步
+              this._dispatch({ type: "reconnected" }, "server");
+              if (!this.isHost) {
+                this._rawSend({ type: "request_state" }, null);
+              }
             }
             resolve();
             return;

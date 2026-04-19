@@ -10,4 +10,8 @@
 //   2) 把下面的 URL 换成 wrangler 输出的地址
 //   3) git commit && git push → Pages 自动发布
 
-export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.huntersg.workers.dev/lan";
+// Cloudflare Workers URL — 国内 workers.dev 多被污染，国内不可达
+// export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.huntersg.workers.dev/lan";
+
+// Deno Deploy URL — 部署完把下面的 URL 换掉（wss + /lan）
+export const DEFAULT_RELAY_URL = "wss://holdem-relay.deno.dev/lan";

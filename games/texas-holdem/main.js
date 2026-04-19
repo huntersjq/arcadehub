@@ -476,6 +476,17 @@ function hostHandleRuntimeMessage(msg, from) {
       }
       pumpEvents();
     }
+  } else if (msg.type === "request_state") {
+    // 重连客户端主动请求当前状态（无服务端 resume 的中继会走这条路径）
+    if (isHost && game) {
+      const pid = from || msg.playerId;
+      if (!pid) return;
+      channel.send({ type: "state", state: buildSnapshot() }, pid);
+      const p = game.players.find((x) => x.id === pid);
+      if (p?.holeCards?.length) {
+        channel.send({ type: "hole_cards", cards: p.holeCards.slice() }, pid);
+      }
+    }
   } else if (msg.type === "chat") {
     chat?.addMessage({ sender: msg.sender, text: msg.text });
     channel.send({ type: "chat", sender: msg.sender, text: msg.text });

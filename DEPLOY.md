@@ -7,9 +7,9 @@ arcadehub 德州扑克支持 4 种部署形态。按需组合使用。
 | 场景 | 前端 | 后端 | 能做的事 |
 |---|---|---|---|
 | 本地开发 | `bun run lan` | 同一进程内 WS 中继 | 本机 / 局域网全模式 |
-| GitHub Pages + PeerJS | Pages | 无（PeerJS 公网信令） | 外网跨设备联机，单人练习、本地多人 |
-| GitHub Pages + Cloudflare Workers | Pages | Workers + Durable Objects | 外网联机（WS 中继） |
-| 四合一 | Pages | Workers（可选） + PeerJS（默认） | 所有模式都可用 |
+| GitHub Pages + Deno Deploy（**国内推荐**） | Pages | Deno Deploy（BroadcastChannel） | 外网公网联机 |
+| GitHub Pages + Cloudflare Workers（境外） | Pages | Workers + Durable Objects | 外网公网联机（国内 `*.workers.dev` 多被污染） |
+| GitHub Pages only | Pages | PeerJS 公网信令 | 仅跨设备 WebRTC（国内信令经常超时，已默认隐藏 tab） |
 
 ## 1. GitHub Pages（托管前端，已配置）
 
@@ -35,18 +35,70 @@ arcadehub 德州扑克支持 4 种部署形态。按需组合使用。
 
 ---
 
-## 2. Cloudflare Workers 中继（可选，提供可靠公网联机）
+## 2. Deno Deploy 中继（国内网络推荐）
+
+Cloudflare `*.workers.dev` 子域在中国大陆网络常被 DNS 污染，国内玩家连不上。**Deno Deploy 的 `*.deno.dev` 子域目前国内可达**，免费层 100 万请求/天，无需域名。
+
+### 2.1 部署（GitHub 集成，推荐）
+
+1. 访问 [deno.com/deploy](https://deno.com/deploy) → **Sign in with GitHub**
+2. **New Project** → 选 `arcadehub` 仓库
+3. **Entry point**：`scripts/relay-deno.ts`
+4. **Production branch**：`main`
+5. 点 **Deploy Project**
+6. 部署完成后拿到 URL：`https://holdem-relay-<suffix>.deno.dev`
+7. 以后每次 `git push main` 自动重新部署
+
+### 3.2 部署（deployctl CLI，可选）
+
+```bash
+deno install -gArf jsr:@deno/deployctl
+cd scripts
+deployctl deploy --project=holdem-relay relay-deno.ts
+```
+
+### 2.3 填入默认地址
+
+编辑 `games/texas-holdem/net/relay-config.js`：
+
+```js
+export const DEFAULT_RELAY_URL = "wss://holdem-relay-<suffix>.deno.dev/lan";
+```
+
+提交推送 → Pages 自动更新 → 所有访客的中继地址自动填好。
+
+### 2.4 健康检查
+
+```bash
+curl https://holdem-relay-<suffix>.deno.dev/health
+# arcadehub relay (deno): OK
+```
+
+### 2.5 与 Cloudflare Workers 版的差异
+
+| | Cloudflare Workers | Deno Deploy |
+|---|---|---|
+| 国内可达 | ❌ `*.workers.dev` 被污染 | ✅ |
+| 服务端 resume 宽限期 | ✅ 30s（Durable Objects） | ❌ 无持久状态 |
+| 断线重连 | 服务端保留 session | 客户端重连后主动 `request_state` |
+| 多 isolate | Durable Object per room | BroadcastChannel 跨 isolate |
+
+**重连效果完全一致**：房主会在客户端重连后自动补发 state + 底牌，玩家无感知。
+
+---
+
+## 3. Cloudflare Workers 中继（境外用户推荐）
 
 如果你不想依赖 PeerJS 公共信令服务器，或者想要一个稳定的公网 WebSocket 中继，按下列步骤部署。
 
-### 2.1 准备
+### 3.1 准备
 
 ```bash
 # 首次登录 Cloudflare（会打开浏览器授权）
 bun x wrangler login
 ```
 
-### 2.2 部署
+### 3.2 部署
 
 ```bash
 cd scripts
@@ -60,7 +112,7 @@ Published arcadehub-relay (xxx ms)
   https://arcadehub-relay.<YOUR-SUBDOMAIN>.workers.dev
 ```
 
-### 2.3 写入默认中继地址（**推荐**）
+### 3.3 写入默认中继地址（**推荐**）
 
 编辑 `games/texas-holdem/net/relay-config.js`：
 
@@ -70,7 +122,7 @@ export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.YOURNAME.workers.dev/lan
 
 提交推送后，Pages 会自动发布，所有访客打开 **LAN / 中继** tab 时**中继地址自动填好**，啥都不用做。
 
-### 2.4 （可选）手动填中继地址
+### 3.4 （可选）手动填中继地址
 
 如果没有写入默认值，每位玩家也可以在大厅自行输入：
 
@@ -79,7 +131,7 @@ export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.YOURNAME.workers.dev/lan
 
 **优先级**：`localStorage` > `relay-config.js` 的默认值 > 同源 `/lan`
 
-### 2.5 免费额度
+### 3.5 免费额度
 
 Cloudflare Workers 免费层：
 - 10 万次请求/天
@@ -90,7 +142,7 @@ Cloudflare Workers 免费层：
 
 ---
 
-## 3. 本地开发（不部署，只本机 + LAN）
+## 4. 本地开发（不部署，只本机 + LAN）
 
 ```bash
 bun run lan
@@ -110,7 +162,7 @@ LAN:     http://192.168.x.y:8765/
 
 ---
 
-## 4. 四种模式在不同部署下是否可用
+## 5. 四种模式在不同部署下是否可用
 
 | 模式 \ 部署 | 本机 `bun run lan` | GitHub Pages | Pages + Workers |
 |---|---|---|---|
@@ -123,7 +175,7 @@ LAN:     http://192.168.x.y:8765/
 
 ---
 
-## 5. 故障排查
+## 6. 故障排查
 
 ### Pages 静态资源 404
 - 确认 Pages source 是 GitHub Actions（不是旧的 Deploy from branch）
@@ -143,7 +195,7 @@ LAN:     http://192.168.x.y:8765/
 
 ---
 
-## 6. 断线重连
+## 7. 断线重连
 
 LAN / 公网中继模式都内置断线重连：
 
