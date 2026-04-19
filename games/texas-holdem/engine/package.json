@@ -1,0 +1,39 @@
+{
+  "name": "@arcadehub/holdem-engine",
+  "version": "0.1.0",
+  "description": "Pure-JS no-limit Texas Hold'em engine: state machine, 7-choose-5 hand evaluator, side-pot calculator, deterministic shuffle.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./game": "./game.js",
+    "./hand": "./hand.js",
+    "./pot": "./pot.js",
+    "./deck": "./deck.js"
+  },
+  "files": [
+    "index.js",
+    "game.js",
+    "hand.js",
+    "pot.js",
+    "deck.js",
+    "README.md"
+  ],
+  "keywords": [
+    "poker",
+    "texas-holdem",
+    "no-limit",
+    "card-game",
+    "hand-evaluator",
+    "monte-carlo",
+    "esm",
+    "zero-deps"
+  ],
+  "author": "arcadehub",
+  "license": "MIT",
+  "private": true,
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  }
+}
