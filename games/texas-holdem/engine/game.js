@@ -33,11 +33,13 @@ const TOURNEY_BLINDS = [
 ];
 
 export class Game {
-  // config: { players: [{id, name, stack, isHuman, aiLevel?}], smallBlind, bigBlind, blindsMode: 'fixed'|'tourney', handsPerLevel }
+  // config: { players: [{id, name, stack, isHuman, aiLevel?}], smallBlind, bigBlind,
+  //           blindsMode: 'fixed'|'tourney', handsPerLevel, actionTimeoutMs }
   constructor(config) {
     this.config = {
       handsPerLevel: 6,
       blindsMode: "fixed",
+      actionTimeoutMs: 15000, // 0 = 不限时（默认 15 秒）
       ...config,
     };
     this.players = this.config.players.map((p, i) => ({
@@ -193,6 +195,7 @@ export class Game {
     const toCall = this.currentBet - p.currentBet;
     const minRaise = Math.max(this.currentBet + this.lastRaise, this.currentBet + this.bigBlind);
     const legalActions = this._legalActions(p);
+    const timeoutMs = this.config.actionTimeoutMs > 0 ? this.config.actionTimeoutMs : 0;
     this._push({
       type: "action_required",
       playerId: p.id,
@@ -203,6 +206,8 @@ export class Game {
       bigBlind: this.bigBlind,
       pot: this.pot,
       legalActions,
+      timeoutMs,
+      deadline: timeoutMs ? Date.now() + timeoutMs : 0,
     });
   }
 

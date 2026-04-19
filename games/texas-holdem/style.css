@@ -610,6 +610,28 @@ html, body {
   box-shadow: 0 0 0 1px var(--gold, #f5c518), 0 0 10px rgba(245,197,24,0.4);
 }
 
+/* ── 行动倒计时圆环（贴在 active 座位上） ── */
+.seat .countdown-ring {
+  position: absolute;
+  /* 居中绕在 seat-avatar 周围；avatar 大约 64x64 */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 14px));
+  width: 78px;
+  height: 78px;
+  pointer-events: none;
+  z-index: 6;
+  filter: drop-shadow(0 0 6px rgba(0,0,0,0.4));
+}
+.seat .countdown-ring .countdown-bg {
+  stroke: rgba(255,255,255,0.12);
+  stroke-width: 3;
+}
+.seat .countdown-ring .countdown-bar {
+  stroke-width: 3.4;
+  transition: stroke-dashoffset 80ms linear, stroke 240ms ease;
+}
+
 /* 公共牌区 */
 .board {
   position: absolute;

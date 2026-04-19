@@ -32,6 +32,24 @@ describe("Game · 起手流程", () => {
     expect(g.stage).toBe(STAGE.IDLE);
   });
 
+  it("action_required 事件附带 deadline 字段（默认 15s）", () => {
+    const g = makeGame();
+    g.startHand(42);
+    const ev = g.drainEvents().find((e) => e.type === "action_required");
+    expect(ev).toBeTruthy();
+    expect(ev.timeoutMs).toBe(15000);
+    expect(ev.deadline).toBeGreaterThan(Date.now());
+    expect(ev.deadline).toBeLessThanOrEqual(Date.now() + 15000);
+  });
+
+  it("actionTimeoutMs=0 时不发送 deadline（不限时模式）", () => {
+    const g = makeGame({ actionTimeoutMs: 0 });
+    g.startHand(42);
+    const ev = g.drainEvents().find((e) => e.type === "action_required");
+    expect(ev.timeoutMs).toBe(0);
+    expect(ev.deadline).toBe(0);
+  });
+
   it("startHand 后进入 PREFLOP，盲注已下，每人两张底牌", () => {
     const g = makeGame();
     g.startHand(42);

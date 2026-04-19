@@ -128,6 +128,10 @@ function attachSquint(cardEl) {
   cardEl.addEventListener("contextmenu", (ev) => ev.preventDefault());
 }
 
+// 倒计时圆环：r=22 → 周长 ≈ 138.23（≈ 2π × 22）
+const COUNTDOWN_R = 22;
+const COUNTDOWN_C = 2 * Math.PI * COUNTDOWN_R;
+
 export class TableView {
   constructor(root) {
     this.root = root;
@@ -137,6 +141,89 @@ export class TableView {
     this.stageEl = root.querySelector("#stageInfo");
     this.dealerLogEl = root.querySelector("#dealerLog");
     this.seatElements = new Map(); // playerId → DOM
+    this._countdown = null;        // { playerId, deadlineMs, totalMs }
+    this._countdownRAF = null;
+  }
+
+  // 由 main.js 在收到 action_required / action 事件时调用
+  setActionDeadline(playerId, deadlineMs, totalMs) {
+    if (!playerId || !deadlineMs || !totalMs) {
+      this._countdown = null;
+      this._stopCountdownTick();
+      this._updateCountdownVisual(); // 立即清掉 UI
+      return;
+    }
+    this._countdown = { playerId, deadlineMs, totalMs };
+    this._startCountdownTick();
+  }
+
+  _startCountdownTick() {
+    if (this._countdownRAF != null) return;
+    const tick = () => {
+      this._countdownRAF = null;
+      if (!this._countdown) return;
+      this._updateCountdownVisual();
+      this._countdownRAF = requestAnimationFrame(tick);
+    };
+    this._countdownRAF = requestAnimationFrame(tick);
+  }
+
+  _stopCountdownTick() {
+    if (this._countdownRAF != null) {
+      cancelAnimationFrame(this._countdownRAF);
+      this._countdownRAF = null;
+    }
+  }
+
+  _updateCountdownVisual() {
+    // 清掉所有座位上的 ring，再给当前需行动的座位画一个
+    for (const seatEl of this.seatElements.values()) {
+      const old = seatEl.querySelector(".countdown-ring");
+      if (old) old.remove();
+    }
+    const d = this._countdown;
+    if (!d) return;
+    const seatEl = this.seatElements.get(d.playerId);
+    if (!seatEl) return;
+    const remaining = Math.max(0, d.deadlineMs - Date.now());
+    const ratio = d.totalMs > 0 ? remaining / d.totalMs : 0;
+
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "countdown-ring");
+    svg.setAttribute("viewBox", "0 0 50 50");
+    svg.setAttribute("aria-hidden", "true");
+
+    // 背景圈（淡）
+    const bg = document.createElementNS(NS, "circle");
+    bg.setAttribute("class", "countdown-bg");
+    bg.setAttribute("cx", "25"); bg.setAttribute("cy", "25");
+    bg.setAttribute("r", String(COUNTDOWN_R));
+    bg.setAttribute("fill", "none");
+    svg.appendChild(bg);
+
+    // 进度条（顺时针递减）
+    const bar = document.createElementNS(NS, "circle");
+    bar.setAttribute("class", "countdown-bar");
+    bar.setAttribute("cx", "25"); bar.setAttribute("cy", "25");
+    bar.setAttribute("r", String(COUNTDOWN_R));
+    bar.setAttribute("fill", "none");
+    bar.setAttribute("stroke-dasharray", String(COUNTDOWN_C));
+    bar.setAttribute("stroke-dashoffset", String(COUNTDOWN_C * (1 - ratio)));
+    bar.setAttribute("transform", "rotate(-90 25 25)"); // 12 点开始
+    bar.setAttribute("stroke-linecap", "round");
+
+    // 颜色按时间档位
+    let color = "var(--countdown-green, #34d399)";
+    if (ratio < 0.4) color = "var(--countdown-yellow, #fbbf24)";
+    if (ratio < 0.15) color = "var(--countdown-red, #f87171)";
+    bar.setAttribute("stroke", color);
+
+    svg.appendChild(bar);
+    seatEl.appendChild(svg);
+
+    // 时间到 → 自然停止 rAF
+    if (remaining <= 0) this._stopCountdownTick();
   }
 
   render(state, perspective) {
@@ -266,6 +353,9 @@ export class TableView {
       this.seatsEl.appendChild(seat);
       this.seatElements.set(p.id, seat);
     }
+
+    // 重渲染后立刻把倒计时圆环画上（如果当前有活跃 deadline）
+    this._updateCountdownVisual();
 
     // 公共牌（diff 渲染，避免每次下注都重建导致闪烁）
     if (!this._communityCache) this._communityCache = [];
