@@ -73,6 +73,16 @@ function init() {
   const savedName = localStorage.getItem("holdem_name");
   nameInput.value = savedName || randomName();
 
+  // 显示 legacy tab（PeerJS 跨设备联机）当 URL 带 ?legacy=1 时
+  try {
+    const legacy = new URLSearchParams(window.location.search).get("legacy");
+    if (legacy === "1") {
+      root.querySelectorAll('.lobby-tab[data-legacy="true"]').forEach((t) => {
+        t.style.display = "";
+      });
+    }
+  } catch (_) {}
+
   // 中继地址回填：优先用 localStorage 里的；否则回退到代码里配置的默认值
   const relayInput = root.getElementById("relayUrl");
   if (relayInput) {
