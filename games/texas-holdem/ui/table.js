@@ -64,21 +64,14 @@ export function renderCardEl(code, opts = {}) {
   corner.appendChild(cornerSuit);
   el.appendChild(corner);
 
-  // 主体：数字牌显示大花色；J/Q/K/A 显示花体字母 + 小花色
+  // 主体：所有牌都显示大花色符号（参考 WePoker / PokerStars）
+  // 脸牌靠 .face class 的金边 + 角标的 J/Q/K/A 字母自然区分
   const main = document.createElement("div");
   main.className = "card-main";
-  if (isFace) {
-    // 脸牌：花体字母为主视觉（花色由左上角标识）
-    const faceLetter = document.createElement("div");
-    faceLetter.className = "face-letter";
-    faceLetter.textContent = rankLabel;
-    main.appendChild(faceLetter);
-  } else {
-    const mainSuit = document.createElement("div");
-    mainSuit.className = "main-suit";
-    mainSuit.textContent = SUIT_SYMBOL[suit];
-    main.appendChild(mainSuit);
-  }
+  const mainSuit = document.createElement("div");
+  mainSuit.className = "main-suit";
+  mainSuit.textContent = SUIT_SYMBOL[suit];
+  main.appendChild(mainSuit);
   el.appendChild(main);
 
   if (opts.deal) el.classList.add("deal-in");
