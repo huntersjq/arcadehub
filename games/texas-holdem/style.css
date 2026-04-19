@@ -470,6 +470,9 @@ html, body {
     0 0 0 0.5px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   flex: 0 0 auto;
+  flex-shrink: 0;             /* 防御：在任何 flex 容器里都不允许被压扁 */
+  min-width: 0;
+  min-height: 0;
 }
 
 /* 每花色着色（覆盖默认 #0a0a0f） */
@@ -1417,12 +1420,13 @@ body[data-theme="blackgold"] .card.back::before {
 
 .hand-result, .game-over {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(0,0,0,0.92);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 80;
-  backdrop-filter: blur(4px);
+  z-index: 200;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* 三段式结算 modal：
@@ -1534,14 +1538,14 @@ body[data-theme="blackgold"] .card.back::before {
 .result-board-cards .card .main-suit { font-size: 1.65rem; }
 
 /* 玩家结算行：横向布局（信息 | 底牌 → 最佳 5 张）
- * 固定 min-height 比卡牌高 + 上下给足空间，避免 cards 被行边缘视觉切顶 */
+ * 用 min-height 而不是 padding 来撑行高 — 让 cards 有足够空间不被压扁 */
 .result-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 1rem 0.95rem;        /* 上下 1rem，给 64px 卡 + highlight -3px translate 留足 */
-  min-height: 86px;              /* 64 卡 + 2*11 padding ≈ 86，强制不缩 */
+  padding: 0.55rem 0.85rem;     /* 横向略宽，纵向收紧 */
+  min-height: 88px;              /* 64 卡 + 上下各 12 ≈ 88；min-height 决定行高，与 padding 解耦 */
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -1687,12 +1691,13 @@ body[data-theme="blackgold"] .card.back::before {
 .history-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: rgba(0,0,0,0.92);          /* 加深 backdrop 遮住底层 seat 胶囊 */
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 90;
-  backdrop-filter: blur(4px);
+  z-index: 200;                           /* 拉高 z-index，确保盖过任何 in-game 元素 */
+  backdrop-filter: blur(10px);            /* 加重 blur */
+  -webkit-backdrop-filter: blur(10px);
 }
 .history-card {
   width: min(720px, 94vw);

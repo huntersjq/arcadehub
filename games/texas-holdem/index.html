@@ -318,11 +318,12 @@
             </div>
           </div>
         </div>
+
+        <!-- 飘字浮动区（动作飘字 / 飞筹码 / 表情反应）
+             放在 #table 内，确保 z-index 60 在 #table 局部栈，不会盖过 z-index 200 的 modal -->
+        <div id="floatingLayer" class="floating-layer"></div>
       </section>
     </div>
-
-    <!-- 飘字浮动区（表情反应） -->
-    <div id="floatingLayer" class="floating-layer"></div>
 
     <script src="../shared/hub-integration.js"></script>
     <script src="../shared/hub-nav.js"></script>
