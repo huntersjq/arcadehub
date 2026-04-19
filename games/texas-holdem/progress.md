@@ -219,8 +219,9 @@ LAN: http://192.168.1.9:8765/
 | #7 | `feat(holdem): 1.2s phase-transition breath` | 仿 wp.apk `GameRoundQueueManage.ROUND_DELAY`；main.js `_pumpQueue` + `_drainPump` drip-feed；阶段切换后 hold 1.2s 再发 next action_required；`deadline` 重打时间戳保证 15s 决策窗口 | 翻牌→转牌→河牌可见喘息 |
 | #8 | `feat(holdem): pre-action (fold-or-check / call-down)` | `ui/preact.js`；不轮到自己时显示 pill bar；arm 后到自己回合自动执行；fold-or-check 一次性、call-down 跨街粘附；新一手清掉 | 实测 call-down 直接跑完一手 |
 | #9 | `style(holdem): refine JQKA + enlarge settlement cards` | 脸牌不再用花体大字母，改用与数字牌一致的大花色 + 角标斜体衬线；结算 modal 卡牌 28→50px、modal 加宽 500→720px | 摊牌页 5 张公共牌大幅放大 |
+| #9.1 | `fix: result-row top no longer clipped by gold halo` | 加大 result-row padding 0.55→0.85rem、行间距 0.5→0.7rem、modal `overflow-x: visible` | 截断问题修复 |
 
-**总成果**：6 个 spec 文件 / **110 单元测试** / 232 ms / 0 console error。新代码 ~1800 行（含 PR #6-9 的 ~700 行）。
+**总成果**：6 个 spec 文件 / **110 单元测试** / 232 ms / 0 console error。新代码 ~1900 行（含 PR #6-9 的 ~800 行）。
 
 ---
 
@@ -278,6 +279,11 @@ LAN: http://192.168.1.9:8765/
 - `e129ce8` feat(texas-holdem): squint card peek (PR #3)
 - `4f25771` feat(texas-holdem): action countdown ring + 15s auto-fold (PR #4)
 - `41f8887` refactor(texas-holdem): publish engine as @arcadehub/holdem-engine (PR #5)
+- `d1e0d9c` feat(texas-holdem): WePoker-inspired 4-color deck + 3 themes (PR #6)
+- `0356152` feat(texas-holdem): 1.2s phase-transition breath (PR #7)
+- `748e4da` feat(texas-holdem): pre-action (fold-or-check / call-down) (PR #8)
+- `1b14eec` style(texas-holdem): refine JQKA + enlarge settlement cards (PR #9)
+- `3061a1b` fix(texas-holdem): result-row top no longer clipped by gold halo
 
 ---
 
