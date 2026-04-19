@@ -603,18 +603,66 @@ function isOnlineMode() {
 }
 
 // ── 事件循环（房主 / 本地） ──
+//
+// 阶段切换（preflop → flop / flop → turn / turn → river）会在 UI 上插入
+// 1.2s 喘息时间（参考 wp.apk GameRoundQueueManage.ROUND_DELAY），让玩家
+// 看清新公共牌再决定，避免事件洪流压死视觉。
+
+const ROUND_DELAY_MS = 1200;
+let _pumpQueue = [];
+let _pumpTimer = null;
+const _pendingBatch = []; // 当前批次的事件（用于联机广播）
+
+function shouldDelayAfter(ev) {
+  return ev.type === "stage" && (ev.stage === "flop" || ev.stage === "turn" || ev.stage === "river");
+}
 
 function pumpEvents() {
   if (!game) return;
   const events = game.drainEvents();
-  for (const ev of events) handleAuthoritativeEvent(ev);
+  if (events.length === 0) return;
+  _pumpQueue.push(...events);
+  _drainPump();
+}
 
-  // 联机广播状态 + 事件
+function _drainPump() {
+  if (_pumpTimer) return; // 已在等待 — 等定时器回调来继续
+  while (_pumpQueue.length > 0) {
+    const ev = _pumpQueue.shift();
+    _processOneEvent(ev);
+    if (shouldDelayAfter(ev) && _pumpQueue.length > 0) {
+      // 把当前批次广播 + 渲染，然后挂起 1.2s
+      _flushBatch();
+      renderAuthoritative();
+      _pumpTimer = setTimeout(() => {
+        _pumpTimer = null;
+        _drainPump();
+      }, ROUND_DELAY_MS);
+      return;
+    }
+  }
+  // 队列消尽 → 收尾广播 + 渲染 + AI 调度
+  _flushBatch();
+  renderAuthoritative();
+  scheduleAIIfNeeded();
+}
+
+function _processOneEvent(ev) {
+  // 当事件被实际"上桌"时（而非引擎压栈时）重打 deadline 时间戳
+  // 这样阶段延迟期间被推迟的 action_required 仍能给玩家完整 15s 决策窗口
+  if (ev.type === "action_required" && ev.timeoutMs > 0) {
+    ev = { ...ev, deadline: Date.now() + ev.timeoutMs };
+  }
+  handleAuthoritativeEvent(ev);
+  _pendingBatch.push(ev);
+}
+
+function _flushBatch() {
+  if (_pendingBatch.length === 0) return;
   if (isOnlineMode() && isHost && channel) {
     channel.send({ type: "state", state: buildSnapshot() });
-    if (events.length > 0) channel.send({ type: "events", events: sanitizeEventsForClients(events) });
-    // 私密底牌单独发给各玩家
-    for (const ev of events) {
+    channel.send({ type: "events", events: sanitizeEventsForClients(_pendingBatch) });
+    for (const ev of _pendingBatch) {
       if (ev.type === "deal_hole") {
         if (ev.playerId !== selfId) {
           channel.send({ type: "hole_cards", cards: ev.cards }, ev.playerId);
@@ -624,12 +672,14 @@ function pumpEvents() {
       }
     }
   }
+  // 本地 deal_hole 已由 handleAuthoritativeEvent 落到 ownHoleCards，此处无需再做
+  _pendingBatch.length = 0;
+}
 
-  // 事件已处理 → 渲染
-  renderAuthoritative();
-
-  // 处理 AI 决策（仅房主 / 本地）
-  scheduleAIIfNeeded();
+function _resetPump() {
+  if (_pumpTimer) { clearTimeout(_pumpTimer); _pumpTimer = null; }
+  _pumpQueue.length = 0;
+  _pendingBatch.length = 0;
 }
 
 function sanitizeEventsForClients(events) {
@@ -1362,6 +1412,7 @@ function cleanupGame() {
   if (aiScheduleTimer) { clearTimeout(aiScheduleTimer); aiScheduleTimer = null; }
   clearActionTimeout();
   currentActionDeadline = null;
+  _resetPump();
   if (channel) { try { channel.close(); } catch (_) {} }
   channel = null;
   game = null;
