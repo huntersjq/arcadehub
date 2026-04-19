@@ -2,20 +2,60 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
+  /* —— 桌布 / 主色 —— */
   --felt: #0f5132;
   --felt-dark: #082818;
   --felt-light: #187a4b;
   --gold: #f5c518;
   --gold-dark: #b28e08;
-  --red: #dc2626;
-  --blue: #2563eb;
   --bg: #0a0a0f;
   --panel: rgba(20, 22, 34, 0.92);
   --panel-border: rgba(255, 255, 255, 0.08);
   --text: #fff;
   --muted: #94a3b8;
   --card-white: #f8fafc;
+  --card-rim: rgba(0, 0, 0, 0.06);
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+
+  /* —— 4 色花色（默认配色，覆盖于 body[data-deck="two-color"] 下） —— */
+  --suit-spade:    #0f172a;   /* 黑桃 — 近黑深蓝 */
+  --suit-heart:    #dc2626;   /* 红心 — 鲜红 */
+  --suit-club:     #058a3f;   /* 梅花 — WePoker 风格深绿 */
+  --suit-diamond:  #2161d8;   /* 方块 — 钴蓝 */
+
+  /* legacy 兼容 */
+  --red: var(--suit-heart);
+  --blue: var(--suit-diamond);
+}
+
+/* —— 2 色花色：红黑（传统）—— */
+body[data-deck="two-color"] {
+  --suit-spade:   #0f172a;
+  --suit-heart:   #dc2626;
+  --suit-club:    #0f172a;
+  --suit-diamond: #dc2626;
+}
+
+/* —— 主题：经典绿（默认）—— 直接用 :root —— */
+/* 主题：午夜蓝 */
+body[data-theme="midnight"] {
+  --felt:        #0c2240;
+  --felt-dark:   #050d1d;
+  --felt-light:  #1b3b6f;
+  --gold:        #6ec1ff;     /* 主色调改为冰蓝点缀（保留 var 名兼容） */
+  --gold-dark:   #285178;
+  --bg:          #04060d;
+  --panel:       rgba(14, 22, 42, 0.92);
+}
+/* 主题：黑金 */
+body[data-theme="blackgold"] {
+  --felt:        #1a1815;
+  --felt-dark:   #0a0907;
+  --felt-light:  #2c2820;
+  --gold:        #d4a017;
+  --gold-dark:   #6b4e00;
+  --bg:          #050402;
+  --panel:       rgba(22, 18, 12, 0.92);
 }
 
 html, body {
@@ -249,9 +289,13 @@ html, body {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at center, rgba(24,122,75,0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at center, color-mix(in srgb, var(--felt-light) 60%, transparent) 0%, transparent 60%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 40px, rgba(255,255,255,0.01) 40px, rgba(255,255,255,0.01) 42px);
   pointer-events: none;
+  transition: background 380ms ease;
+}
+.table-oval {
+  transition: background 380ms ease, border-color 380ms ease;
 }
 
 .table-oval {
@@ -402,22 +446,40 @@ html, body {
 }
 .seat-action-hint.show { opacity: 1; }
 
-/* 卡片：左上角标 + 主体大花色/脸牌字母（参考实体扑克） */
+/* ── 扑克牌（参考 WePoker 4-色高阶配色） ──────────────────
+ * 设计要点：
+ *   - 每个花色用独立 CSS 变量（--suit-X），可由主题或 deck-mode 覆盖
+ *   - 角标点数 + 花色竖排（鲜明 + 紧凑），主体居中放大花色
+ *   - 卡面有微微 paper-grain 渐变 + 内描边，不再是纯白
+ *   - 脸牌（J/Q/K/A）金色内框做加重强调
+ */
 .card {
   width: 48px; height: 66px;
   border-radius: 7px;
-  background: linear-gradient(180deg, #ffffff, #f6f7f9);
+  background:
+    /* 微纸纹斜光 */
+    linear-gradient(135deg, rgba(255,255,255,0) 35%, rgba(0,0,0,0.04) 100%),
+    linear-gradient(180deg, #ffffff 0%, #fafbfc 60%, #eef0f3 100%);
   color: #0a0a0f;
   font-family: 'PingFang SC', 'Outfit', system-ui, sans-serif;
   font-weight: 900;
   position: relative;
   box-shadow:
     0 4px 10px rgba(0, 0, 0, 0.35),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 0 0 0.5px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   flex: 0 0 auto;
 }
-.card.red { color: var(--red); }
+
+/* 每花色着色（覆盖默认 #0a0a0f） */
+.card.suit-s { color: var(--suit-spade); }
+.card.suit-h { color: var(--suit-heart); }
+.card.suit-c { color: var(--suit-club); }
+.card.suit-d { color: var(--suit-diamond); }
+
+/* legacy: .red 类仍然可用（旧代码路径），等价于红心色 */
+.card.red:not([class*="suit-"]) { color: var(--suit-heart); }
 
 /* 左上角：点数（大）+ 花色（小） */
 .card .card-corner {
@@ -470,14 +532,17 @@ html, body {
   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.18);
   letter-spacing: -0.04em;
 }
-.card.face.red .face-letter {
-  background: linear-gradient(145deg, #dc2626, #7f1d1d);
+/* 脸牌花体字母按花色染色（4 色 deck 下尤其重要） */
+.card.face.suit-s .face-letter,
+.card.face.suit-c .face-letter {
+  background: linear-gradient(145deg, currentColor, color-mix(in srgb, currentColor 55%, #000));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-.card.face:not(.red) .face-letter {
-  background: linear-gradient(145deg, #0f172a, #334155);
+.card.face.suit-h .face-letter,
+.card.face.suit-d .face-letter {
+  background: linear-gradient(145deg, currentColor, color-mix(in srgb, currentColor 60%, #5b0606));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -535,8 +600,14 @@ html, body {
 .result-board-cards .card .main-suit { font-size: 1rem; }
 .result-board-cards .card.face .face-letter { font-size: 1.05rem; }
 
+/* ── 牌背：双层（外深底 + 内菱形/网格 pattern + 金边） ── */
 .card.back {
-  background: repeating-linear-gradient(45deg, #1e3a8a 0 6px, #1e40af 6px 12px);
+  background:
+    /* 中央菱形交叉网格 */
+    radial-gradient(circle at 50% 50%, rgba(245,197,24,0.18) 0%, transparent 55%),
+    repeating-linear-gradient(45deg,  rgba(255,255,255,0.06) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 6px, transparent 6px 12px),
+    linear-gradient(135deg, #1e3a8a 0%, #1e40af 60%, #0f1f5a 100%);
   color: transparent;
   border: 1px solid rgba(255,255,255,0.1);
 }
@@ -544,8 +615,31 @@ html, body {
   content: "";
   position: absolute;
   inset: 3px;
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 3px;
+  border: 1px solid rgba(245, 197, 24, 0.5);
+  border-radius: 4px;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+}
+/* 主题：午夜蓝 — 卡背改更冷的青色 */
+body[data-theme="midnight"] .card.back {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(110,193,255,0.2) 0%, transparent 55%),
+    repeating-linear-gradient(45deg,  rgba(255,255,255,0.06) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 6px, transparent 6px 12px),
+    linear-gradient(135deg, #0d1d3a 0%, #1b3b6f 60%, #050d1d 100%);
+}
+body[data-theme="midnight"] .card.back::before {
+  border-color: rgba(110, 193, 255, 0.5);
+}
+/* 主题：黑金 — 黑底金菱形 */
+body[data-theme="blackgold"] .card.back {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(212,160,23,0.32) 0%, transparent 55%),
+    repeating-linear-gradient(45deg,  rgba(212,160,23,0.10) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(-45deg, rgba(212,160,23,0.10) 0 6px, transparent 6px 12px),
+    linear-gradient(135deg, #14110b 0%, #2c2820 50%, #0a0907 100%);
+}
+body[data-theme="blackgold"] .card.back::before {
+  border-color: rgba(212, 160, 23, 0.6);
 }
 
 .card.deal-in { animation: deal-in 0.35s ease both; }
@@ -608,6 +702,60 @@ html, body {
 /* 顶部工具栏图标按钮被激活时（眯牌模式开） */
 .icon-btn.active {
   box-shadow: 0 0 0 1px var(--gold, #f5c518), 0 0 10px rgba(245,197,24,0.4);
+}
+
+/* ── 主题 / 牌色 设置弹窗 ── */
+.settings-wrap { position: relative; }
+.settings-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--panel, rgba(20,22,34,0.96));
+  border: 1px solid var(--panel-border, rgba(255,255,255,0.12));
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  padding: 12px;
+  z-index: 50;
+  display: none;
+}
+.settings-popup.open { display: block; }
+.settings-section { padding: 4px 4px 10px; }
+.settings-section + .settings-section { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
+.settings-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  color: var(--muted, #94a3b8);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.settings-radios { display: flex; flex-direction: column; gap: 4px; }
+.settings-radio {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.92rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.settings-radio:hover { background: rgba(255,255,255,0.05); }
+.settings-radio input[type="radio"] {
+  appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  position: relative;
+  cursor: pointer;
+}
+.settings-radio input[type="radio"]:checked {
+  border-color: var(--gold, #f5c518);
+}
+.settings-radio input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--gold, #f5c518);
+  border-radius: 50%;
 }
 
 /* ── 行动倒计时圆环（贴在 active 座位上） ── */

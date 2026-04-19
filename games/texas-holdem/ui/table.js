@@ -43,6 +43,9 @@ export function renderCardEl(code, opts = {}) {
   }
   const rank = code[0];
   const suit = code[1];
+  // 4-色花色专属 class（CSS 决定每个花色的颜色）
+  el.classList.add("suit-" + suit);
+  // legacy 兼容：旧 .red 类对应 ♥/♦
   if (suit === "h" || suit === "d") el.classList.add("red");
   const rankLabel = rank === "T" ? "10" : rank;
   const isFace = rank === "J" || rank === "Q" || rank === "K" || rank === "A";

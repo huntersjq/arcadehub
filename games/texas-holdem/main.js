@@ -21,6 +21,10 @@ import { recordHand, showMilestoneToast } from "./ui/stats.js";
 import { LocalChannel, PeerChannel, LanChannel, genRoomCode } from "./net/channel.js";
 import { DEFAULT_RELAY_URL } from "./net/relay-config.js";
 import { isSquintEnabled, setSquintEnabled } from "./ui/squint.js";
+import {
+  applyTheme, getTheme, setTheme, getDeckMode, setDeckMode,
+  THEMES, DECK_MODES, THEME_LABELS, DECK_LABELS,
+} from "./ui/theme.js";
 
 // ── 全局状态 ──
 
@@ -96,8 +100,12 @@ function init() {
   sfx = new SoundFx();
   soundOn = sfx.isEnabled();
 
+  // 应用主题 + 牌色（写到 <body data-theme/data-deck>），再绑定事件
+  applyTheme();
+
   bindLobbyEvents();
   bindTableUIEvents();
+  bindSettingsPopup();
 
   showScreen("lobby");
 }
@@ -725,6 +733,65 @@ function handleAuthoritativeEvent(ev) {
 
 function clearActionTimeout() {
   if (_actionTimeoutId) { clearTimeout(_actionTimeoutId); _actionTimeoutId = null; }
+}
+
+// ── 设置弹窗（主题 + 牌色） ──
+
+function bindSettingsPopup() {
+  const btn = document.getElementById("settingsToggle");
+  const popup = document.getElementById("settingsPopup");
+  const themeWrap = document.getElementById("settingsThemes");
+  const deckWrap = document.getElementById("settingsDecks");
+  if (!btn || !popup || !themeWrap || !deckWrap) return;
+
+  function buildRadios(wrap, name, options, labels, current) {
+    wrap.replaceChildren();
+    for (const v of options) {
+      const lab = document.createElement("label");
+      lab.className = "settings-radio";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = name;
+      input.value = v;
+      if (v === current) input.checked = true;
+      const span = document.createElement("span");
+      span.textContent = labels[v];
+      lab.appendChild(input);
+      lab.appendChild(span);
+      wrap.appendChild(lab);
+    }
+  }
+
+  buildRadios(themeWrap, "theme", THEMES, THEME_LABELS, getTheme());
+  buildRadios(deckWrap, "deck", DECK_MODES, DECK_LABELS, getDeckMode());
+
+  themeWrap.addEventListener("change", (e) => {
+    if (e.target.name === "theme") {
+      setTheme(e.target.value);
+      reRenderTable();
+    }
+  });
+  deckWrap.addEventListener("change", (e) => {
+    if (e.target.name === "deck") {
+      setDeckMode(e.target.value);
+      reRenderTable();
+    }
+  });
+
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    popup.classList.toggle("open");
+  });
+  document.addEventListener("click", (ev) => {
+    if (!popup.contains(ev.target) && ev.target !== btn) popup.classList.remove("open");
+  });
+}
+
+function reRenderTable() {
+  try {
+    if (isHost) renderAuthoritative();
+    else renderMirror();
+  } catch (_) {}
 }
 
 // 把当前 deadline 推给 TableView（rAF 驱动 SVG 圆环）

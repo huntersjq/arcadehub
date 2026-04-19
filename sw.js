@@ -3,7 +3,7 @@
  * Cache-first strategy for offline play.
  */
 
-const CACHE_NAME = "arcade-hub-v18";
+const CACHE_NAME = "arcade-hub-v19";
 
 const STATIC_ASSETS = [
   "/",
@@ -62,6 +62,7 @@ const STATIC_ASSETS = [
   "/games/texas-holdem/ui/history.js",
   "/games/texas-holdem/ui/sfx.js",
   "/games/texas-holdem/ui/squint.js",
+  "/games/texas-holdem/ui/theme.js",
   "/games/texas-holdem/ui/stats.js",
   "/games/texas-holdem/net/channel.js",
   "/games/texas-holdem/net/relay-config.js",
