@@ -4,6 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 8765 --bind 0.0.0.0",
-    "lan": "bun scripts/lan-server.js 8765"
+    "lan": "bun scripts/lan-server.js 8765",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
   }
 }

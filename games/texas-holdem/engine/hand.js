@@ -83,7 +83,7 @@ function eval5(cards) {
     const hiPair = Math.max(counts[0][0], counts[1][0]);
     const loPair = Math.min(counts[0][0], counts[1][0]);
     const kicker = counts[2][0];
-    return { rank: 2, values: [hiPair, loPair, kicker], name: HAND_NAME_CN[2] };
+    return { rank: 2, values: [hiPair, loPair, kicker], name: HAND_NAME_CN[2], cards };
   }
   if (counts[0][1] === 2) {
     const pair = counts[0][0];
