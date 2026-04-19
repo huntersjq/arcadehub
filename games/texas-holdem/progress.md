@@ -1,7 +1,7 @@
 # 德州扑克（中文版）开发进度
 
-> 分支：`claude/texas-holdem-poker-game-1TvHU`
-> 最后更新：2026-04-18
+> 分支：`main`
+> 最后更新：2026-04-19
 
 ## 项目目标
 
@@ -46,6 +46,11 @@
 | **Cloudflare Workers 公网中继（Durable Objects）** | ✅ 完成 |
 | **断线重连（客户端退避 + 服务器 30s 宽限期）** | ✅ 完成 |
 | 跨设备联机真机测试（PeerJS 公网） | ⏳ 待验证 |
+| **引擎单元测试（vitest · 110 用例 / 5 spec 文件）** | ✅ 完成 |
+| **蒙特卡洛 Web Worker（主线程零阻塞）** | ✅ 完成 |
+| **眯牌（squint）模式（长按 3D 翻盖）** | ✅ 完成 |
+| **行动倒计时圆环 + 15s 自动 fold** | ✅ 完成 |
+| **引擎抽成 `@arcadehub/holdem-engine` 包** | ✅ 完成 |
 
 ## 已完成模块明细
 
@@ -188,25 +193,39 @@ LAN: http://192.168.1.9:8765/
 - ✨ **Hub 成就接入**：向 `hub/achievements.js` 新增 6 条 texas-holdem 专属成就（All In / Card Shark / Poker Pro / Full House / Four of a Kind / Royal Flush），读取 `holdem_stats` 解锁。
 - ✨ **Web Audio 音效**：过程化合成的发牌 / 过牌 / 跟注 / 加注 / 全下 / 弃牌 / 翻牌 / 赢家 音效，零外部资源，可一键静音（状态持久化）。
 
+## 2026-04-19 优化迭代（来自 wp.apk 拆解后的 5-PR 收割）
+
+> 完整方案见 `OPTIMIZATION_PLAN.md`（370 行）
+
+| PR | 主题 | 改动 | 验证 |
+|---|---|---|---|
+| #1 | `test(holdem): vitest + 73 engine specs` | hand/pot/deck/game 4 个 spec；修了 `eval5` 二对漏 cards 字段的隐藏 bug | 73 用例 309ms |
+| #2 | `perf(holdem): monte-carlo equity in web worker` | `equity-core.js` 纯函数 + `equity.worker.js` module worker + `equity-client.js` 异步 API；`bot.decide()` 异步化；UI 实时胜率走 worker | Worker 自检：6.7ms 跑 200 次 |
+| #3 | `feat(holdem): squint card peek (long-press 3D flip)` | `ui/squint.js` 偏好；`renderCardEl(_, {squintCover:true})` 加背面遮罩 + 长按翻起；顶栏 👁️/🙈 toggle | matrix3d 转换确认；视觉验过 |
+| #4 | `feat(holdem): action countdown ring + 15s auto-fold` | 引擎事件加 `deadline`；TableView SVG 圆环 + rAF；主机端超时 auto check/fold；颜色档绿→黄→红 | 烟雾测：超时玩家被 auto-fold |
+| #5 | `refactor(holdem): publish engine as @arcadehub/holdem-engine` | `engine/package.json` v0.1.0 + `index.js` 公共 API + README + 26 条出口测试；引擎已可被外部 import | 110 用例 232ms |
+
+**5 个 PR 后**：5 个 spec 文件 / **110 单元测试** / 232 ms / 0 console error / 全部 commit 落在 main。
+
+---
+
 ## 尚未完成 / 下一步规划
 
 ### 🎯 中期（下周）
 
-1. **跨设备联机真机测试**
-   - 手机 ↔ 桌面 浏览器跨设备
-   - PeerJS 信令稳定性 + 断线重连
-   - 2–4 人房间完整体验
+1. **跨设备联机真机测试**（PeerJS 信令稳定性）
+2. **锦标赛模式完善**（递增盲注表 / 破产离桌 / 冠军特效）
+3. **Round Queue + 阶段间 1.2s 延迟**（OPTIMIZATION_PLAN P1 #5）
+4. **Pre-action**：「过到底 / 弃到底 / 跟到底」（P1 #6）
+5. **Run-It-Twice**（全押后跑两次）（P1 #7）
 
-2. **锦标赛模式完善**
-   - 递增盲注表接入
-   - 破产玩家离桌提示
-   - 冠军金色特效
+### 🎯 后续
 
-### 🎯 长期（可选）
-
-3. **AI 难度扩展**（GTO 近似 / 对手建模）
-4. **回放系统**（历史手完整动画回放）
-5. **排行榜同步**（可选云端汇总）
+6. **多牌桌主题**（经典绿 / 午夜蓝 / 黑金）
+7. **完整动画回放器**（用历史 eventBus 复现整手）
+8. **i18n 框架 + 英文**
+9. **JSDoc 类型注解 → 引擎模块**
+10. **稀有牌型 Jackpot 累积奖**
 
 ## 设计决策记录
 
@@ -222,11 +241,12 @@ LAN: http://192.168.1.9:8765/
 
 | 类型 | 行数 |
 |---|---|
-| JavaScript（游戏） | ~3640 |
+| JavaScript（游戏 · 含新增 ai/equity-* + ui/squint） | ~4060 |
+| 单元测试（vitest · engine/__tests__ + ai/__tests__） | ~720 |
 | LAN 服务器 | ~215 |
-| CSS | ~1620 |
-| HTML | ~305 |
-| **合计** | **~5780** |
+| CSS（含 squint 3D + 倒计时圆环） | ~1700 |
+| HTML | ~310 |
+| **合计** | **~7005** |
 
 ## 提交历史
 
@@ -237,6 +257,12 @@ LAN: http://192.168.1.9:8765/
 - （2026-04-18 第 3 轮：LAN 联机模式，Bun WebSocket 中继服务器 + `LanChannel` + 新 tab，修复客户端 `onHumanAction` 早退 bug）
 - （2026-04-18 第 4 轮：GitHub Pages 前端自动部署 + Cloudflare Workers Durable Objects 公网中继；`LanChannel` 支持自定义中继地址；`DEPLOY.md` 部署指南）
 - （2026-04-18 第 5 轮：断线重连。客户端指数退避 500ms/1s/2s/4s/8s 五次重试；服务器保留会话 30s 宽限期；`resume:true` init 帧恢复；`peer_resumed`/`host_resumed` 事件；房主自动补发状态 + 底牌；红/绿 toast 提示）
+- `45ae1d4` docs(texas-holdem): optimization plan grounded in wp.apk reverse-engineering
+- `5ecd752` test(texas-holdem): add vitest + 73 engine specs (PR #1)
+- `e1730c8` perf(texas-holdem): monte-carlo equity in web worker (PR #2)
+- `e129ce8` feat(texas-holdem): squint card peek (PR #3)
+- `4f25771` feat(texas-holdem): action countdown ring + 15s auto-fold (PR #4)
+- `41f8887` refactor(texas-holdem): publish engine as @arcadehub/holdem-engine (PR #5)
 
 ---
 
