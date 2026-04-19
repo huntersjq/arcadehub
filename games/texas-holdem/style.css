@@ -564,6 +564,52 @@ html, body {
   box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(245,197,24,0.6);
 }
 
+/* ── 眯牌（squint）·  正面卡片之上盖一层"背面"，长按掀起 ── */
+.card.squintable {
+  perspective: 600px;            /* 给翻盖一些 3D 透视 */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.card.squintable .card-back-cover {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(45deg, #1e3a8a 0 6px, #1e40af 6px 12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  z-index: 5;
+  transform-origin: bottom center;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms ease;
+  will-change: transform;
+  pointer-events: none; /* 不挡指针，让长按事件落到 .card 本体 */
+}
+.card.squintable .card-back-cover::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 3px;
+}
+.card.squintable.squint-active .card-back-cover {
+  /* 翻盖：从底边向上掀起（rotateX 让顶边远离观察者，露出下面的正牌） */
+  transform: translateY(-6%) rotateX(118deg) translateZ(2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.45);
+}
+.card.squintable.squint-active {
+  /* 揭起的同时给整张牌一点点上抬 */
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.45),
+    0 0 0 1px var(--gold, #f5c518),
+    0 0 14px rgba(245,197,24,0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+/* 顶部工具栏图标按钮被激活时（眯牌模式开） */
+.icon-btn.active {
+  box-shadow: 0 0 0 1px var(--gold, #f5c518), 0 0 10px rgba(245,197,24,0.4);
+}
+
 /* 公共牌区 */
 .board {
   position: absolute;

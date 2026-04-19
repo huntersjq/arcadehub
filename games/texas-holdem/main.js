@@ -20,6 +20,7 @@ import { SoundFx } from "./ui/sfx.js";
 import { recordHand, showMilestoneToast } from "./ui/stats.js";
 import { LocalChannel, PeerChannel, LanChannel, genRoomCode } from "./net/channel.js";
 import { DEFAULT_RELAY_URL } from "./net/relay-config.js";
+import { isSquintEnabled, setSquintEnabled } from "./ui/squint.js";
 
 // ── 全局状态 ──
 
@@ -172,6 +173,27 @@ function bindTableUIEvents() {
   });
   // 初始图标
   root.getElementById("soundToggle").textContent = soundOn ? "🔊" : "🔇";
+
+  // 眯牌模式开关
+  const squintBtn = root.getElementById("squintToggle");
+  if (squintBtn) {
+    const refreshSquintBtn = () => {
+      const on = isSquintEnabled();
+      squintBtn.textContent = on ? "🙈" : "👁️";
+      squintBtn.classList.toggle("active", on);
+      squintBtn.title = on ? "眯牌模式：开（默认背面 · 长按看牌）" : "眯牌模式：关（底牌正面）";
+    };
+    refreshSquintBtn();
+    squintBtn.addEventListener("click", () => {
+      setSquintEnabled(!isSquintEnabled());
+      refreshSquintBtn();
+      // 立即重渲染一次桌面，让设置生效（不等下一个事件）
+      try {
+        if (isHost) renderAuthoritative();
+        else renderMirror();
+      } catch (_) {}
+    });
+  }
   root.getElementById("nextHandBtn").addEventListener("click", () => {
     root.getElementById("handResult").style.display = "none";
     if (isHost && game && game.stage !== STAGE.GAME_OVER) {

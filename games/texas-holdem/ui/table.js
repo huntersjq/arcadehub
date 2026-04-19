@@ -2,6 +2,7 @@
 
 import { SUIT_SYMBOL } from "../engine/deck.js";
 import { STAGE_NAME_CN } from "../engine/game.js";
+import { isSquintEnabled } from "./squint.js";
 
 function capsuleText(b) {
   switch (b.action) {
@@ -80,7 +81,51 @@ export function renderCardEl(code, opts = {}) {
   if (opts.deal) el.classList.add("deal-in");
   if (opts.flip) el.classList.add("flip");
   if (opts.highlight) el.classList.add("highlight");
+
+  // 眯牌模式：渲染正面但盖一层"背面"遮罩，长按掀起来
+  if (opts.squintCover) {
+    el.classList.add("squintable");
+    const cover = document.createElement("div");
+    cover.className = "card-back-cover";
+    el.appendChild(cover);
+    attachSquint(el);
+  }
+
   return el;
+}
+
+// 长按 → 掀起牌背遮罩（鸽子般地眯一眼）
+// 使用 pointer events 同时支持鼠标 + 触屏
+function attachSquint(cardEl) {
+  let pressTimer = null;
+  let startX = 0, startY = 0;
+  const LONG_PRESS_MS = 140;
+  const MOVE_TOLERANCE = 10;
+
+  const cancel = () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    cardEl.classList.remove("squint-active");
+  };
+
+  cardEl.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== undefined && ev.button !== 0) return; // 仅左键 / 主指
+    startX = ev.clientX; startY = ev.clientY;
+    pressTimer = setTimeout(() => {
+      cardEl.classList.add("squint-active");
+      pressTimer = null;
+    }, LONG_PRESS_MS);
+  });
+  cardEl.addEventListener("pointermove", (ev) => {
+    if (!pressTimer && !cardEl.classList.contains("squint-active")) return;
+    const dx = Math.abs(ev.clientX - startX);
+    const dy = Math.abs(ev.clientY - startY);
+    if (dx > MOVE_TOLERANCE || dy > MOVE_TOLERANCE) cancel();
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((evName) => {
+    cardEl.addEventListener(evName, cancel);
+  });
+  // 防止移动端长按弹出系统菜单
+  cardEl.addEventListener("contextmenu", (ev) => ev.preventDefault());
 }
 
 export class TableView {
@@ -172,7 +217,11 @@ export class TableView {
         if (showHole) {
           showHole.forEach((c) => cards.appendChild(renderCardEl(c)));
         } else if (p.id === perspective && state.ownHoleCards) {
-          state.ownHoleCards.forEach((c) => cards.appendChild(renderCardEl(c)));
+          // 自己的底牌：眯牌模式下盖一层背面遮罩，长按掀起
+          const squint = isSquintEnabled();
+          state.ownHoleCards.forEach((c) =>
+            cards.appendChild(renderCardEl(c, { squintCover: squint })),
+          );
         } else {
           for (let k = 0; k < p.holeCardCount; k++) cards.appendChild(renderCardEl(null, { back: true }));
         }

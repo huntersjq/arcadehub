@@ -4,6 +4,7 @@ import { renderCardEl } from "./table.js";
 import { bestOfSeven } from "../engine/hand.js";
 import { preflopStrength } from "../ai/equity-core.js";
 import { requestEquity } from "../ai/equity-client.js";
+import { isSquintEnabled } from "./squint.js";
 
 const EQUITY_ITERATIONS = {
   preflop: 0,   // 翻前用快路径
@@ -74,7 +75,8 @@ export class Controls {
     this.context = context;
     this.bar.style.display = "flex";
     this.holeEl.replaceChildren();
-    for (const c of holeCards) this.holeEl.appendChild(renderCardEl(c));
+    const squint = isSquintEnabled();
+    for (const c of holeCards) this.holeEl.appendChild(renderCardEl(c, { squintCover: squint }));
 
     const { toCall, minRaise, maxRaise, legalActions } = context;
     this.callAmountEl.textContent = toCall > 0 ? toCall.toLocaleString() : "";
