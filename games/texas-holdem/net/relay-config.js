@@ -13,5 +13,5 @@
 // Cloudflare Workers URL — 国内 workers.dev 多被污染，国内不可达
 // export const DEFAULT_RELAY_URL = "wss://arcadehub-relay.huntersg.workers.dev/lan";
 
-// Deno Deploy URL — 部署完把下面的 URL 换掉（wss + /lan）
-export const DEFAULT_RELAY_URL = "wss://holdem-relay.deno.dev/lan";
+// Deno Deploy URL（当前主用）
+export const DEFAULT_RELAY_URL = "wss://arcadehub-b3z3rk3112f2.huntersg.deno.net/lan";
